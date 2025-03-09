@@ -66,15 +66,13 @@
 1. 克隆此仓库到您的ComfyUI自定义节点文件夹:
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/username/PIP_ArtisticWords.git
+git clone https://github.com/chenpipi0807/PIP_ArtisticWords.git
 ```
 
 2. 安装所需依赖:
 ```bash
-pip install -r PIP_ArtisticWords/requirements.txt
+pip install -r requirements.txt
 ```
-
-3. 重启ComfyUI
 
 ## 🧩 依赖项
 
