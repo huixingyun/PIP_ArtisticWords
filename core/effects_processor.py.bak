@@ -1,0 +1,1176 @@
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance, ImageChops, ImageOps, ImageMath
+import random
+import colorsys
+import math
+
+class EffectsProcessor:
+    """Processes and applies various text effects based on styles."""
+    
+    def __init__(self):
+        """Initialize the effects processor."""
+        pass
+    
+    def hex_to_rgba(self, hex_color, alpha=255):
+        """Convert hex color to RGBA tuple."""
+        if not hex_color:
+            return (255, 255, 255, alpha)
+        
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 6:
+            r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            
+            # 特殊处理粉红色/紫色调，确保它们更加准确地显示
+            # 粉红色和紫色通常具有较高的红色和蓝色值，并且较低的绿色值
+            if r > 200 and b > 140 and g < 180:
+                print(f"[EffectsProcessor] 检测到粉红色/紫色调 hex: {hex_color}, RGB: ({r},{g},{b})")
+                # 保持原始颜色但确保alpha通道充分传递
+                return (r, g, b, alpha)
+                
+            return (r, g, b, alpha)
+        elif len(hex_color) == 8:
+            r, g, b, a = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4, 6))
+            
+            # 同样处理带有alpha通道的粉红色/紫色调
+            if r > 200 and b > 140 and g < 180:
+                print(f"[EffectsProcessor] 检测到带alpha的粉红色/紫色调 hex: {hex_color}, RGBA: ({r},{g},{b},{a})")
+                # 使用指定的alpha，但确保它不为零（除非原始alpha为零）
+                a_final = alpha if alpha != 255 else max(a, 200)
+                return (r, g, b, a_final)
+                
+            # 使用传递的alpha参数覆盖原始alpha，除非特别请求使用原始alpha
+            a_to_use = alpha if alpha != 255 else a
+            return (r, g, b, a_to_use)
+            
+        return (255, 255, 255, alpha)
+    
+    def apply_shadow(self, img, style):
+        """Apply shadow effect with optimized visibility."""
+        if 'shadow' not in style:
+            return img
+            
+        shadow = style['shadow']
+        color = shadow.get('color', '#000000')
+        blur = shadow.get('blur', 5)
+        opacity = shadow.get('opacity', 0.7)
+        
+        # 支持偏移值的不同表示方式
+        if 'offset' in shadow:
+            offset = shadow['offset']
+            offset_x, offset_y = offset if isinstance(offset, list) else (offset, offset)
+        else:
+            offset_x = shadow.get('offset_x', 5)
+            offset_y = shadow.get('offset_y', 5)
+            
+        # 只有同时提供了角度和距离时才重新计算偏移
+        angle = shadow.get('angle', None)
+        distance = shadow.get('distance', None)  
+        
+        if angle is not None and distance is not None:
+            # 将角度转换为弧度并计算偏移
+            angle_rad = math.radians(angle)
+            offset_x = round(math.cos(angle_rad) * distance)
+            offset_y = round(math.sin(angle_rad) * distance)
+        
+        # 确保阴影效果可见
+        blur = max(1, min(40, blur))  # 限制最大模糊半径
+        
+        # 确保偏移至少为1像素，使阴影可见
+        offset_x = offset_x if abs(offset_x) >= 1 else (1 if offset_x >= 0 else -1)
+        offset_y = offset_y if abs(offset_y) >= 1 else (1 if offset_y >= 0 else -1)
+        
+        # 标准化不透明度处理
+        if isinstance(opacity, str):
+            try:
+                opacity = float(opacity)
+            except ValueError:
+                opacity = 0.7
+        
+        # 确保透明度在有效范围内
+        opacity = max(0.0, min(1.0, opacity))
+        alpha = int(255 * opacity)
+        
+        shadow_color = self.hex_to_rgba(color, alpha)
+        
+        # 记录阴影参数
+        print(f"[EffectsProcessor] 应用阴影效果 - 颜色: {color}, 透明度: {opacity}, 模糊: {blur}")
+        print(f"[EffectsProcessor] 阴影偏移: X={offset_x}, Y={offset_y}")
+        
+        # 提取alpha通道
+        mask = img.split()[3]
+        
+        # 为阴影增加扩散效果（如果指定）
+        spread = shadow.get('spread', 0)
+        if spread > 0:
+            spread_px = min(3, int(spread / 10))
+            for _ in range(spread_px):
+                mask = mask.filter(ImageFilter.MaxFilter(3))
+        
+        # 创建阴影图层
+        shadow_layer = Image.new('RGBA', img.size, shadow_color)
+        shadow_layer.putalpha(mask)
+        
+        # 偏移阴影层
+        shadow_layer = ImageChops.offset(shadow_layer, int(round(offset_x)), int(round(offset_y)))
+        
+        # 应用模糊
+        if blur > 0:
+            shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=blur))
+        
+        # 创建结果图像 - 先放置阴影，然后放置原始图像
+        shadow_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        shadow_img = Image.alpha_composite(shadow_img, shadow_layer)
+        
+        result = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        result = Image.alpha_composite(result, shadow_img)
+        result = Image.alpha_composite(result, img)
+        
+        return result
+    
+    def apply_outline(self, img, style):
+        """Apply outline to text."""
+        if 'outline' not in style and 'outline_width' not in style:
+            return img
+        
+        # Extract outline parameters
+        if 'outline' in style:
+            outline = style['outline']
+            outline_width = outline.get('width', 1)
+            
+            # 检查是否有渐变
+            if 'gradient' in outline:
+                print(f"[EffectsProcessor] 应用渐变描边 - 宽度: {outline.get('width', 1)}")
+                return self._apply_gradient_outline(img, style)
+            else:
+                outline_color = self.hex_to_rgba(outline.get('color', '#000000'))
+        else:
+            outline_color = self.hex_to_rgba(style.get('outline_color', '#000000'))
+            outline_width = style.get('outline_width', 1)
+        
+        if outline_width <= 0:
+            return img
+        
+        # Create a mask from the alpha channel
+        mask = img.split()[3]
+        
+        # Create outline layer
+        outline_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        # Apply dilation to the mask for each outline pixel
+        for i in range(1, int(round(outline_width)) + 1):
+            dilated = mask.filter(ImageFilter.MaxFilter(3))
+            outline_layer = Image.new('RGBA', img.size, outline_color)
+            outline_layer.putalpha(dilated)
+            
+            # Composite with the existing outline
+            outline_img = Image.alpha_composite(outline_img, outline_layer)
+            mask = dilated
+        
+        # Composite the original image on top of the outline
+        result = Image.alpha_composite(outline_img, img)
+        return result
+    
+    def _apply_gradient_outline(self, img, style):
+        """使用渐变效果应用描边。"""
+        outline = style['outline']
+        outline_width = outline.get('width', 0)  # 默认值改为0
+        opacity = outline.get('opacity', 0)  # 获取透明度
+        gradient = outline.get('gradient', {})
+        
+        # 检查宽度和透明度是否有效
+        if outline_width <= 0 or opacity <= 0:
+            print(f"[EffectsProcessor] 跳过渐变描边，因为width={outline_width}或opacity={opacity}为0或负值")
+            return img
+            
+        # 添加详细日志    
+        print(f"[EffectsProcessor] 渐变描边详情 - 宽度: {outline_width}, 透明度: {opacity}, 渐变类型: {gradient.get('type', 'linear')}")
+        print(f"[EffectsProcessor] 渐变颜色: {gradient.get('colors', ['无颜色'])}")
+            
+        # 创建alpha通道蒙版
+        mask = img.split()[3]
+        
+        # 创建描边图层
+        outline_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        # 对每个描边像素应用膨胀
+        dilated_mask = mask
+        # 确保描边宽度至少为1像素，并增加轮廓可见性
+        outline_width = max(1, outline_width)
+        print(f"[EffectsProcessor] 实际使用的描边宽度: {outline_width}")
+        
+        for i in range(outline_width):
+            dilated_mask = dilated_mask.filter(ImageFilter.MaxFilter(3))
+        
+        # 创建描边区域的蒙版（只保留膨胀区域，不包含原始文本区域）
+        outline_mask = ImageChops.difference(dilated_mask, mask)
+        
+        # 为描边创建渐变
+        gradient_type = gradient.get('type', 'linear')
+        colors = gradient.get('colors', ['#000000', '#FFFFFF'])
+        
+        # 处理方向或角度
+        direction = gradient.get('direction', 'top_bottom')
+        angle = 0
+        
+        # 将方向转换为角度 - 修正角度定义
+        if direction == 'left_right':
+            angle = 0  # 从左到右
+        elif direction == 'right_left':
+            angle = 180  # 从右到左
+        elif direction == 'top_bottom':
+            angle = 90  # 从上到下
+        elif direction == 'bottom_top':
+            angle = 270  # 从下到上
+        elif isinstance(direction, (int, float)):
+            angle = direction
+            
+        print(f"[EffectsProcessor] 渐变方向: {direction}, 角度: {angle}")
+        
+        # 创建渐变图像
+        width, height = img.size
+        gradient_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        # 转换颜色为RGBA
+        rgb_colors = [self.hex_to_rgba(color)[:3] for color in colors]
+        
+        # 创建渐变
+        if gradient_type == 'linear':
+            # 使用更高效的方法创建渐变，传递强度参数
+            try:
+                # 创建一个线性渐变 - 更简单的方法
+                gradient_array = np.zeros((height, width, 3), dtype=np.uint8)
+                
+                # 根据角度决定渐变方向
+                if angle == 0:  # 左到右
+                    for x in range(width):
+                        progress = x / width
+                        if len(rgb_colors) == 2:
+                            r = int((1-progress) * rgb_colors[0][0] + progress * rgb_colors[1][0])
+                            g = int((1-progress) * rgb_colors[0][1] + progress * rgb_colors[1][1])
+                            b = int((1-progress) * rgb_colors[0][2] + progress * rgb_colors[1][2])
+                            gradient_array[:, x] = [r, g, b]
+                elif angle == 180:  # 右到左
+                    for x in range(width):
+                        progress = 1 - x / width
+                        if len(rgb_colors) == 2:
+                            r = int((1-progress) * rgb_colors[0][0] + progress * rgb_colors[1][0])
+                            g = int((1-progress) * rgb_colors[0][1] + progress * rgb_colors[1][1])
+                            b = int((1-progress) * rgb_colors[0][2] + progress * rgb_colors[1][2])
+                            gradient_array[:, x] = [r, g, b]
+                elif angle == 90:  # 上到下
+                    for y in range(height):
+                        progress = y / height
+                        if len(rgb_colors) == 2:
+                            r = int((1-progress) * rgb_colors[0][0] + progress * rgb_colors[1][0])
+                            g = int((1-progress) * rgb_colors[0][1] + progress * rgb_colors[1][1])
+                            b = int((1-progress) * rgb_colors[0][2] + progress * rgb_colors[1][2])
+                            gradient_array[y, :] = [r, g, b]
+                elif angle == 270:  # 下到上
+                    for y in range(height):
+                        progress = 1 - y / height
+                        if len(rgb_colors) == 2:
+                            r = int((1-progress) * rgb_colors[0][0] + progress * rgb_colors[1][0])
+                            g = int((1-progress) * rgb_colors[0][1] + progress * rgb_colors[1][1])
+                            b = int((1-progress) * rgb_colors[0][2] + progress * rgb_colors[1][2])
+                            gradient_array[y, :] = [r, g, b]
+                
+                # 创建渐变图像
+                gradient_img = Image.fromarray(gradient_array, mode='RGB')
+                
+                # 为渐变图像添加alpha通道
+                gradient_img.putalpha(outline_mask)
+            except Exception as e:
+                print(f"[EffectsProcessor] 创建渐变时出错: {e}")
+                # 如果出错，使用简单的纯色描边作为后备方案
+                gradient_img = Image.new('RGBA', img.size, self.hex_to_rgba(colors[0]))
+                gradient_img.putalpha(outline_mask)
+        else:
+            # 其他渐变类型的处理 - 使用简单的纯色作为后备
+            print(f"[EffectsProcessor] 不支持的渐变类型: {gradient_type}，使用第一种颜色")
+            gradient_img = Image.new('RGBA', img.size, self.hex_to_rgba(colors[0]))
+            gradient_img.putalpha(outline_mask)
+        
+        # 合成图像
+        result = Image.alpha_composite(outline_img, gradient_img)
+        result = Image.alpha_composite(result, img)
+        
+        return result
+    
+    def apply_gradient(self, img, style):
+        """Apply gradient to text."""
+        if 'gradient' not in style:
+            return img
+        
+        gradient = style['gradient']
+        gradient_type = gradient.get('type', 'linear')
+        colors = gradient.get('colors', ['#FFFFFF', '#000000'])
+        
+        # 添加详细调试日志以帮助排查问题
+        print(f"[EffectsProcessor] 应用渐变效果 - 类型: {gradient_type}")
+        print(f"[EffectsProcessor] 原始渐变颜色: {colors}")
+        
+        # 确保colors是列表格式 (处理可能的格式差异)
+        if not isinstance(colors, list):
+            print(f"[EffectsProcessor] 警告：渐变颜色不是列表格式，而是: {type(colors)}")
+            colors = ['#FFFFFF', '#000000']  # 使用默认颜色
+        
+        # 如果列表为空，也使用默认颜色
+        if len(colors) == 0:
+            print(f"[EffectsProcessor] 警告：渐变颜色列表为空")
+            colors = ['#FFFFFF', '#000000']  # 使用默认颜色
+            
+        # 如果列表只有一个颜色，添加第二个颜色
+        if len(colors) == 1:
+            print(f"[EffectsProcessor] 警告：渐变只有一种颜色，添加黑色作为第二种颜色")
+            colors.append('#000000')
+            
+        # Convert hex colors to RGB tuples
+        rgb_colors = []
+        for color in colors:
+            try:
+                # 确保颜色是有效的十六进制颜色字符串
+                if isinstance(color, str) and color.startswith('#'):
+                    rgb_color = self.hex_to_rgba(color)[:3]
+                    rgb_colors.append(rgb_color)
+                else:
+                    print(f"[EffectsProcessor] 警告：无效的颜色格式: {color}，使用默认颜色")
+                    rgb_colors.append((255, 255, 255))
+            except Exception as e:
+                print(f"[EffectsProcessor] 颜色转换出错: {e}，使用默认颜色")
+                rgb_colors.append((255, 255, 255))
+                
+        # 确保至少有两种颜色用于渐变
+        if len(rgb_colors) < 2:
+            print(f"[EffectsProcessor] 警告：有效RGB颜色少于2种，添加默认颜色")
+            rgb_colors.append((0, 0, 0))
+            
+        print(f"[EffectsProcessor] 最终RGB颜色列表: {rgb_colors}")
+        
+        # Get angle or direction
+        angle = gradient.get('angle', 0)
+        if 'direction' in gradient:
+            direction = gradient['direction']
+            if direction == 'top_bottom':
+                angle = 90
+            elif direction == 'bottom_top':
+                angle = 270
+            elif direction == 'left_right':
+                angle = 0
+            elif direction == 'right_left':
+                angle = 180
+        
+        # 获取渐变强度
+        intensity = gradient.get('intensity', 1.0)
+        
+        # 获取渐变透明度，如果有的话
+        opacity = gradient.get('opacity', 1.0)
+        print(f"[EffectsProcessor] 渐变透明度: {opacity}")
+        
+        # 获取图像尺寸和alpha通道
+        width, height = img.size
+        img_bands = img.split()
+        
+        # 确保img是RGBA模式
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+            img_bands = img.split()
+        
+        # 如果img是RGBA模式，获取各个通道
+        if len(img_bands) == 4:
+            r_orig, g_orig, b_orig, alpha = img_bands
+        else:
+            # 如果不是，创建空白alpha通道
+            alpha = Image.new('L', img.size, 255)
+            r_orig, g_orig, b_orig = img_bands
+        
+        # 优化: 创建更高效的渐变实现
+        if gradient_type == 'linear':
+            # 使用更高效的方法创建渐变，传递强度参数
+            gradient_img = self._create_linear_gradient(width, height, rgb_colors, angle, intensity)
+        elif gradient_type == 'radial':
+            # 使用更高效的方法创建径向渐变，传递强度参数
+            gradient_img = self._create_radial_gradient(width, height, rgb_colors, intensity)
+        else:
+            # 默认使用线性渐变
+            gradient_img = self._create_linear_gradient(width, height, rgb_colors, angle, intensity)
+        
+        # 确保渐变图像为RGBA模式
+        if gradient_img.mode != 'RGBA':
+            gradient_img = gradient_img.convert('RGBA')
+        
+        # 优化: 直接使用渐变填充而不是混合 - 让渐变效果更明显
+        # 修改：确保alpha通道是255（完全不透明）在文字区域内
+        alpha_255 = alpha.point(lambda x: 255 if x > 0 else 0)
+        gradient_img.putalpha(alpha_255)
+        
+        # 应用透明度设置，如果opacity小于1
+        if opacity < 1.0:
+            # 创建透明层
+            transparent_layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+            # 合成渐变图像与透明层
+            opacity_int = int(opacity * 255)
+            gradient_mask = Image.new('L', img.size, opacity_int)
+            final_img = Image.composite(gradient_img, transparent_layer, gradient_mask)
+            print(f"[EffectsProcessor] 应用渐变透明度: {opacity} ({opacity_int}/255)")
+        else:
+            final_img = gradient_img
+        
+        print("[EffectsProcessor] 增强的渐变填充已应用到文本")
+        return final_img
+    
+    def apply_bevel(self, img, style):
+        """Apply bevel effect to text."""
+        if 'bevel' not in style:
+            return img
+        
+        bevel = style['bevel']
+        depth = bevel.get('depth', 3)
+        highlight_color = self.hex_to_rgba(bevel.get('highlight', '#FFFFFF'), 180)
+        shadow_color = self.hex_to_rgba(bevel.get('shadow', '#000000'), 180)
+        angle = bevel.get('angle', 315)
+        
+        # Create mask from alpha channel
+        mask = img.split()[3]
+        
+        # Create highlight and shadow layers
+        highlight_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        shadow_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        # Calculate offset based on angle
+        angle_rad = np.radians(angle)
+        highlight_offset = (int(-depth * np.cos(angle_rad)), int(-depth * np.sin(angle_rad)))
+        shadow_offset = (int(depth * np.cos(angle_rad)), int(depth * np.sin(angle_rad)))
+        
+        # Apply highlight
+        highlight_layer = Image.new('RGBA', img.size, highlight_color)
+        highlight_layer.putalpha(mask)
+        highlight_img.paste(highlight_layer, highlight_offset, highlight_layer)
+        
+        # Apply shadow
+        shadow_layer = Image.new('RGBA', img.size, shadow_color)
+        shadow_layer.putalpha(mask)
+        shadow_img.paste(shadow_layer, shadow_offset, shadow_layer)
+        
+        # Composite highlight, shadow, and original
+        result = Image.alpha_composite(highlight_img, shadow_img)
+        result = Image.alpha_composite(result, img)
+        
+        return result
+    
+    def apply_glow(self, img, style):
+        """Apply glow effect to text."""
+        glow_key = 'glow'
+        if glow_key not in style:
+            # Try alternate 'outer_glow' key
+            glow_key = 'outer_glow'
+            if glow_key not in style:
+                print("[EffectsProcessor] 跳过glow效果，因为没有找到'glow'或'outer_glow'键")
+                return img
+        
+        glow = style[glow_key]
+        if glow is None:
+            print(f"[EffectsProcessor] 跳过glow效果，因为效果配置为None")
+            return img
+            
+        glow_color = self.hex_to_rgba(glow.get('color', '#FFFFFF'), 100)
+        base_radius = glow.get('radius', 10)
+        intensity = glow.get('intensity', 0.5)
+        
+        # 如果radius或intensity为0，则跳过发光效果
+        if base_radius <= 0 or intensity <= 0:
+            print(f"[EffectsProcessor] 跳过glow效果，因为radius={base_radius}或intensity={intensity}为0")
+            return img
+        
+        # 根据实际字体大小调整发光半径
+        # 计算缩放因子：基准字体大小为100
+        font_size_scale = 1.0
+        if 'actual_font_size' in style:
+            # 实际字体越大，发光效果也应该更明显
+            actual_font_size = style['actual_font_size']
+            font_size_scale = max(actual_font_size / 100.0, 0.8)
+            print(f"[EffectsProcessor] 发光效果字体大小缩放因子: {font_size_scale:.2f} (字体大小: {actual_font_size})")
+        
+        # 应用缩放因子到发光半径，增强发光效果
+        radius = base_radius * font_size_scale
+        # 确保最小有一定的发光半径
+        radius = max(radius, 5)
+        print(f"[EffectsProcessor] 最终发光半径: {radius:.2f} (基础半径: {base_radius})")
+        
+        # Create mask from alpha channel
+        mask = img.split()[3]
+        
+        # 对掩码进行预处理以增强发光效果
+        # 首先稍微扩展掩码边缘
+        expanded_mask = mask.filter(ImageFilter.MaxFilter(3))
+        
+        # Create glow layer
+        glow_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        glow_layer = Image.new('RGBA', img.size, glow_color)
+        glow_layer.putalpha(expanded_mask)
+        
+        # Apply blur for glow effect
+        glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius))
+        
+        # 增强发光强度
+        enhanced_intensity = min(intensity * 1.2, 1.0)
+        
+        # Adjust intensity
+        if enhanced_intensity < 1.0:
+            glow_r, glow_g, glow_b, glow_a = glow_layer.split()
+            glow_a = glow_a.point(lambda x: int(x * enhanced_intensity))
+            glow_layer = Image.merge('RGBA', (glow_r, glow_g, glow_b, glow_a))
+        
+        # 多次应用发光层以增强效果
+        glow_img = Image.alpha_composite(glow_img, glow_layer)
+        
+        # 对于高强度发光，再叠加一层较小半径的发光以增强边缘
+        if intensity > 0.6:
+            inner_glow = Image.new('RGBA', img.size, glow_color)
+            inner_glow.putalpha(mask)
+            inner_glow = inner_glow.filter(ImageFilter.GaussianBlur(radius * 0.5))
+            
+            # 合成发光
+            glow_img = Image.alpha_composite(glow_img, inner_glow)
+            print(f"[EffectsProcessor] 应用额外的内层发光，增强边缘亮度")
+        
+        # Composite glow and original
+        result = Image.alpha_composite(glow_img, img)
+        
+        return result
+    
+    def apply_texture(self, img, style):
+        """Apply texture effect to text."""
+        if 'texture' not in style:
+            return img
+        
+        texture = style['texture']
+        texture_type = texture.get('type', 'noise')
+        texture_params = texture.get('params', {})
+        texture_opacity = texture_params.get('opacity', 0.2)
+        blend_mode = style.get('texture_blend_mode', 'overlay')
+        
+        # Create texture layer
+        texture_img = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        if texture_type == 'noise':
+            # Generate noise texture
+            noise_data = np.random.randint(0, 255, (img.size[1], img.size[0], 3), dtype=np.uint8)
+            noise_img = Image.fromarray(noise_data)
+            texture_img = Image.merge('RGBA', (*noise_img.split(), img.split()[3]))
+        
+        # Apply blend mode
+        r, g, b, a = img.split()
+        tr, tg, tb, ta = texture_img.split()
+        
+        if blend_mode == 'overlay':
+            # Overlay blend
+            blended_r = Image.blend(r, tr, texture_opacity)
+            blended_g = Image.blend(g, tg, texture_opacity)
+            blended_b = Image.blend(b, tb, texture_opacity)
+        elif blend_mode == 'multiply':
+            # Multiply blend
+            blended_r = ImageChops.multiply(r, tr)
+            blended_g = ImageChops.multiply(g, tg)
+            blended_b = ImageChops.multiply(b, tb)
+        else:
+            # Default to normal blend
+            blended_r = Image.blend(r, tr, texture_opacity)
+            blended_g = Image.blend(g, tg, texture_opacity)
+            blended_b = Image.blend(b, tb, texture_opacity)
+        
+        result = Image.merge('RGBA', (blended_r, blended_g, blended_b, a))
+        return result
+    
+    def apply_glitch(self, img, style):
+        """Apply glitch effect to text."""
+        if 'glitch' not in style:
+            return img
+        
+        glitch = style['glitch']
+        intensity = glitch.get('intensity', 0.2)
+        color_shift = glitch.get('color_shift', True)
+        noise = glitch.get('noise', True)
+        
+        # Create copy for processing
+        glitch_img = img.copy()
+        width, height = img.size
+        
+        # Apply horizontal shifts
+        if random.random() < intensity * 2:
+            r, g, b, a = glitch_img.split()
+            offset = int(width * intensity * 0.1)
+            r = r.transform(r.size, Image.AFFINE, (1, 0, offset, 0, 1, 0))
+            glitch_img = Image.merge('RGBA', (r, g, b, a))
+        
+        # Apply color channel shifts
+        if color_shift and random.random() < intensity:
+            r, g, b, a = glitch_img.split()
+            offset_r = int(width * intensity * random.uniform(-0.05, 0.05))
+            offset_g = int(width * intensity * random.uniform(-0.05, 0.05))
+            r = r.transform(r.size, Image.AFFINE, (1, 0, offset_r, 0, 1, 0))
+            g = g.transform(g.size, Image.AFFINE, (1, 0, offset_g, 0, 1, 0))
+            glitch_img = Image.merge('RGBA', (r, g, b, a))
+        
+        # Apply noise
+        if noise and random.random() < intensity:
+            noise_data = np.random.randint(0, 255, (height, width, 4), dtype=np.uint8)
+            noise_data[:, :, 3] = np.array(glitch_img.split()[3])
+            noise_img = Image.fromarray(noise_data)
+            glitch_img = Image.blend(glitch_img, noise_img, intensity * 0.3)
+        
+        return glitch_img
+    
+    def apply_inner_shadow(self, img, style):
+        """应用内阴影效果"""
+        if 'inner_shadow' not in style:
+            return img
+        
+        inner_shadow = style['inner_shadow']
+        color = self.hex_to_rgba(inner_shadow.get('color', '#000000'))
+        
+        # 支持偏移值的不同表示方式
+        if 'offset' in inner_shadow:
+            offset = inner_shadow['offset']
+            offset_x, offset_y = offset if isinstance(offset, list) else (offset, offset)
+        else:
+            offset_x = inner_shadow.get('offset_x', 2)
+            offset_y = inner_shadow.get('offset_y', 2)
+        
+        blur = inner_shadow.get('blur', 2)
+        opacity = inner_shadow.get('opacity', 0.5)
+        
+        # 简化角度和距离的处理方式，仅在需要时计算
+        angle = inner_shadow.get('angle', None)
+        distance = inner_shadow.get('distance', None)
+        
+        # 只有在同时提供了角度和距离时才重新计算偏移
+        if angle is not None and distance is not None:
+            # 将角度转换为弧度并计算偏移
+            angle_rad = math.radians(angle)
+            offset_x = round(math.cos(angle_rad) * distance)
+            offset_y = round(math.sin(angle_rad) * distance)
+        
+        print(f"[EffectsProcessor] 应用内阴影效果 - 颜色: {inner_shadow.get('color', '#000000')}, 透明度: {opacity}, 模糊: {blur}")
+        print(f"[EffectsProcessor] 内阴影偏移: X={offset_x}, Y={offset_y}")
+        
+        if isinstance(opacity, str):
+            try:
+                opacity = float(opacity)
+            except ValueError:
+                opacity = 0.5
+        
+        # 确保透明度在有效范围内
+        opacity = max(0.0, min(1.0, opacity))
+        
+        # 获取原始图像的alpha通道作为蒙版
+        mask = img.split()[3]
+        
+        # 处理阻塞(choke)参数
+        choke = inner_shadow.get('choke', 0)
+        if choke > 0:
+            # 限制最大侵蚀次数
+            choke_px = min(5, int(choke / 20)) 
+            if choke_px > 0:
+                for _ in range(choke_px):
+                    mask = mask.filter(ImageFilter.MinFilter(3))
+        
+        # 创建偏移的蒙版 - 内阴影是从边缘向内偏移
+        offset_mask = ImageChops.offset(mask, -int(round(offset_x)), -int(round(offset_y)))
+        
+        # 创建内阴影蒙版
+        # 阴影区域是原始蒙版与偏移蒙版的差异
+        shadow_mask = ImageChops.subtract(mask, offset_mask)
+        
+        # 应用高斯模糊 - 限制模糊半径以提高性能
+        blur = min(blur, 10)  # 限制最大模糊半径
+        if blur > 0:
+            shadow_mask = shadow_mask.filter(ImageFilter.GaussianBlur(blur))
+        
+        # 创建内阴影图层
+        shadow_layer = Image.new('RGBA', img.size, color)
+        
+        # 将阴影蒙版应用到阴影图层
+        r, g, b, a = shadow_layer.split()
+        a = ImageChops.multiply(a, shadow_mask)
+        shadow_layer = Image.merge('RGBA', (r, g, b, a))
+        
+        # 根据不透明度调整阴影强度
+        if opacity < 1.0:
+            r, g, b, a = shadow_layer.split()
+            a = a.point(lambda x: int(x * opacity))
+            shadow_layer = Image.merge('RGBA', (r, g, b, a))
+        
+        # 修改：使用更强烈的混合模式，而不是简单的乘法混合
+        # 对于内阴影，我们采用"正片叠底"效果但更加明显，确保在浅色背景上也能看到效果
+        
+        # 分离原图通道
+        r_img, g_img, b_img, a_img = img.split()
+        
+        # 分离阴影层通道
+        r_shadow, g_shadow, b_shadow, a_shadow = shadow_layer.split()
+        
+        # 对RGB通道应用暗化混合（模拟更强烈的正片叠底效果）
+        # 使用更强烈的算法确保效果可见
+        def darken_blend(src, shadow):
+            # 自定义混合函数，使内阴影更加明显
+            return ImageMath.eval("convert(max(convert(s1,'F')*convert(s2,'F')/255.0, convert(s1,'F')-((255-convert(s2,'F'))*0.8))*1.2, 'L')", 
+                                  s1=src, s2=shadow)
+        
+        r_result = darken_blend(r_img, r_shadow)
+        g_result = darken_blend(g_img, g_shadow)
+        b_result = darken_blend(b_img, b_shadow)
+        
+        # 合并回RGBA图像，保持原始alpha通道
+        result = Image.merge('RGBA', (r_result, g_result, b_result, a_img))
+        
+        print("[EffectsProcessor] 已应用内阴影效果")
+        return result
+    
+    def apply_double_outline(self, img, style):
+        """Apply double outline effect - an inner primary outline and outer secondary outline."""
+        if 'double_outline' not in style:
+            return img
+            
+        double_outline = style['double_outline']
+        
+        # 获取主要描边参数
+        primary = double_outline.get('primary', {})
+        primary_width = primary.get('width', 4)
+        primary_color = self.hex_to_rgba(primary.get('color', '#FF00FF'))
+        
+        # 获取次要描边参数
+        secondary = double_outline.get('secondary', {})
+        secondary_width = secondary.get('width', 2)
+        secondary_color = self.hex_to_rgba(secondary.get('color', '#8E0062'))
+        
+        # 确保描边宽度至少为1像素
+        primary_width = max(1, primary_width)
+        secondary_width = max(1, secondary_width)
+        
+        # 记录参数
+        print(f"[EffectsProcessor] 应用双层描边 - 主描边宽度: {primary_width}, 次描边宽度: {secondary_width}")
+        
+        # 从alpha通道创建蒙版
+        mask = img.split()[3]
+        result = img.copy()
+        
+        # 创建次要(外)描边层
+        total_width = primary_width + secondary_width
+        outer_outline = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        # 应用次要描边(外层)
+        for i in range(1, total_width + 1):
+            dilated = mask.filter(ImageFilter.MaxFilter(3))
+            outline_layer = Image.new('RGBA', img.size, secondary_color)
+            outline_layer.putalpha(dilated)
+            
+            # Composite with the existing outline
+            outer_outline = Image.alpha_composite(outer_outline, outline_layer)
+            mask = dilated
+        
+        # 创建主要(内)描边层
+        inner_outline = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        
+        # 应用主要描边(内层)
+        for i in range(1, primary_width + 1):
+            dilated = mask.filter(ImageFilter.MaxFilter(3))
+            outline_layer = Image.new('RGBA', img.size, primary_color)
+            outline_layer.putalpha(dilated)
+            
+            # Composite with the existing outline
+            inner_outline = Image.alpha_composite(inner_outline, outline_layer)
+            mask = dilated
+        
+        # 组合次要和主要描边
+        result = Image.alpha_composite(outer_outline, inner_outline)
+        # 组合原始图像
+        result = Image.alpha_composite(result, img)
+        
+        print("[EffectsProcessor] 已应用双层描边效果")
+        return result
+    
+    def apply_all_effects(self, base_img, style):
+        """Apply all effects from style to the base image."""
+        img = base_img.copy()
+        
+        # 记录处理开始
+        print(f"[EffectsProcessor] 开始应用所有效果 - 图像尺寸: {img.size}")
+        
+        # 确保图像始终有Alpha通道
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+            print("[EffectsProcessor] 图像已转换为RGBA模式")
+        
+        # 检测图像是否有足够的非透明像素
+        alpha = img.split()[3]
+        if alpha.getextrema()[1] < 50:  # 检查Alpha通道最大值是否过低
+            print("[EffectsProcessor] 警告: 图像透明度过高，效果可能不明显")
+        
+        # 修改后的效果应用顺序 - 基于用户指定的顺序（从下到上）
+        # -------------------------------------------------
+        
+        # 1. 最先应用发光效果（作为底层效果）
+        has_glow = False
+        for glow_key in ['glow', 'outer_glow']:
+            if glow_key in style and style[glow_key] is not None:
+                # 只有当发光效果的radius和intensity都大于0时才应用
+                glow_effect = style[glow_key]
+                if glow_effect.get('radius', 0) > 0 and glow_effect.get('intensity', 0) > 0:
+                    img = self.apply_glow(img, style)
+                    has_glow = True
+                    print(f"[EffectsProcessor] 已应用{glow_key}效果")
+                    break
+                else:
+                    print(f"[EffectsProcessor] 跳过{glow_key}效果，因为radius或intensity为0")
+            elif glow_key in style:
+                print(f"[EffectsProcessor] 跳过{glow_key}效果，因为效果配置为None")
+        
+        # 2. 然后应用外阴影
+        if 'shadow' in style:
+            shadow = style['shadow']
+            # 检查shadow参数
+            # 只有当blur > 0或offset不为0，且alpha/opacity > 0时才应用阴影
+            blur = shadow.get('blur', 0)
+            opacity = shadow.get('opacity', shadow.get('alpha', 0))
+            offset_x = shadow.get('offset_x', 0)
+            offset_y = shadow.get('offset_y', 0)
+            
+            if (blur > 0 or offset_x != 0 or offset_y != 0) and opacity > 0:
+                img = self.apply_shadow(img, style)
+                print("[EffectsProcessor] 已应用阴影效果")
+            else:
+                print("[EffectsProcessor] 跳过阴影效果，因为blur/offset/opacity参数为0")
+        
+        # 3. 应用渐变填充(基础颜色填充)
+        if 'gradient' in style:
+            img = self.apply_gradient(img, style)
+            print("[EffectsProcessor] 已应用文本渐变效果")
+        # 检查fill是否包含渐变 - 支持SVG导入的渐变
+        elif 'fill' in style and isinstance(style['fill'], dict) and style['fill'].get('type') == 'gradient':
+            # 将fill中的渐变数据转换为gradient字段格式
+            gradient_data = style['fill']
+            style['gradient'] = gradient_data
+            img = self.apply_gradient(img, style)
+            print("[EffectsProcessor] 已应用SVG文本渐变填充效果")
+        
+        # 4. 应用内阴影(必须在填充后渲染，在描边之前)
+        if 'inner_shadow' in style:
+            inner_shadow = style['inner_shadow']
+            # 检查inner_shadow参数
+            blur = inner_shadow.get('blur', 0)
+            opacity = inner_shadow.get('opacity', 0)
+            offset_x = inner_shadow.get('offset_x', 0)
+            offset_y = inner_shadow.get('offset_y', 0)
+            
+            if (blur > 0 or offset_x != 0 or offset_y != 0) and opacity > 0:
+                img = self.apply_inner_shadow(img, style)
+                print("[EffectsProcessor] 已应用内阴影效果")
+            else:
+                print("[EffectsProcessor] 跳过内阴影效果，因为blur/offset/opacity参数为0")
+        
+        # 5. 最后应用描边效果(最顶层)
+        # 应用双层描边 (如果存在)
+        if 'double_outline' in style:
+            double_outline = style['double_outline']
+            if double_outline.get('width', 0) > 0 and double_outline.get('opacity', 0) > 0:
+                img = self.apply_double_outline(img, style)
+                # 日志输出已在函数内部
+            else:
+                print("[EffectsProcessor] 跳过双层描边效果，因为width或opacity为0")
+        # 否则应用普通描边
+        elif 'outline' in style:
+            outline = style['outline']
+            if outline.get('width', 0) > 0 and outline.get('opacity', 0) > 0:
+                if 'gradient' in outline:
+                    img = self._apply_gradient_outline(img, style)
+                    print("[EffectsProcessor] 已应用渐变描边效果")
+                else:
+                    img = self.apply_outline(img, style)
+                    print("[EffectsProcessor] 已应用普通描边效果")
+            else:
+                print("[EffectsProcessor] 跳过描边效果，因为width或opacity为0")
+        
+        # 应用斜面效果(如果存在)
+        if 'bevel' in style:
+            img = self.apply_bevel(img, style)
+            print("[EffectsProcessor] 已应用斜面效果")
+        
+        # 记录处理完成
+        print(f"[EffectsProcessor] 所有效果应用完成 - 最终图像尺寸: {img.size}")
+        return img
+    
+    def _scale_style_parameters(self, style, scale_factor):
+        """根据缩放因子调整样式参数"""
+        # 创建深拷贝避免修改原始样式
+        import copy
+        scaled_style = copy.deepcopy(style)
+        
+        # 如果缩放因子接近1，则不需要调整
+        if 0.95 <= scale_factor <= 1.05:
+            return scaled_style
+            
+        # 缩放描边宽度 - 确保最小值更大以保持效果可见性
+        if 'outline' in scaled_style:
+            if isinstance(scaled_style['outline'], dict) and 'width' in scaled_style['outline']:
+                original_width = scaled_style['outline']['width']
+                # 特殊处理描边宽度以保持效果明显
+                if original_width > 1:
+                    # 对于大于1的描边宽度，使用更激进的公式确保描边更明显
+                    # 增加最小值从3到5，并使用更高的保留比例
+                    scaled_width = max(round(original_width * scale_factor), max(5, int(original_width * 0.7)))
+                    scaled_style['outline']['width'] = scaled_width
+                    print(f"[EffectsProcessor] 描边宽度增强: 原始宽度 {original_width}, 缩放后宽度 {scaled_width}")
+                    
+                    # 强化描边对比度
+                    if 'color' in scaled_style['outline'] and isinstance(scaled_style['outline']['color'], str):
+                        # 保持描边颜色的原始值，但确保它有足够高的不透明度
+                        if scaled_style['outline']['color'].startswith('#') and len(scaled_style['outline']['color']) == 9:
+                            # 如果有alpha通道，确保它足够高 (至少80%)
+                            color = scaled_style['outline']['color'][:7]  # 保留颜色部分
+                            scaled_style['outline']['color'] = color + "CC"  # 设置至少80%不透明度
+                            print(f"[EffectsProcessor] 增强描边不透明度: {color} → {scaled_style['outline']['color']}")
+        
+        # 增强阴影效果
+        if 'shadow' in scaled_style:
+            if isinstance(scaled_style['shadow'], dict):
+                shadow = scaled_style['shadow']
+                
+                # 调整阴影颜色，使其更明显
+                if 'color' in shadow and isinstance(shadow['color'], str):
+                    # 如果是白色阴影，将其换成浅灰色以增加可见度
+                    if shadow['color'].lower().startswith('#fff') or shadow['color'].lower().startswith('#ffffff'):
+                        shadow['color'] = '#ddddddee'  # 浅灰色，90%不透明度
+                        print(f"[EffectsProcessor] 将白色阴影调整为浅灰色以提高可见度")
+                    elif shadow['color'].endswith('77') or int(shadow['color'][-2:], 16) < 128:  # 不透明度低于50%
+                        # 增加阴影不透明度
+                        shadow['color'] = shadow['color'][:7] + "aa"  # 设置为约67%不透明度
+                
+                # 调整阴影偏移和模糊
+                if 'offset' in shadow and isinstance(shadow['offset'], list) and len(shadow['offset']) == 2:
+                    # 使用更温和的缩放，但确保最小值更高
+                    offset_scale = max(0.80, scale_factor)
+                    shadow['offset'] = [
+                        max(3, int(shadow['offset'][0] * offset_scale)),
+                        max(3, int(shadow['offset'][1] * offset_scale))
+                    ]
+                
+                # 增强阴影模糊
+                if 'blur' in shadow:
+                    # 确保阴影有足够的模糊以柔化边缘
+                    shadow['blur'] = max(3, int(shadow['blur'] * scale_factor))
+        
+        # 增强发光效果
+        if 'glow' in scaled_style:
+            if isinstance(scaled_style['glow'], dict):
+                glow = scaled_style['glow']
+                
+                # 确保发光半径足够大
+                if 'radius' in glow:
+                    glow['radius'] = max(5, int(glow['radius'] * scale_factor))
+                
+                # 增强发光强度
+                if 'intensity' in glow:
+                    glow['intensity'] = min(1.0, glow['intensity'] * 1.25)
+        
+        return scaled_style
+
+    def _create_linear_gradient(self, width, height, colors, angle=0, intensity=1.0):
+        """Create a linear gradient given colors, angle and intensity."""
+        try:
+            # 将角度转换为弧度
+            angle_rad = math.radians(angle)
+            cos_angle = math.cos(angle_rad)
+            sin_angle = math.sin(angle_rad)
+            
+            # 首先确保颜色数组中至少有2种颜色
+            if len(colors) < 2:
+                colors = list(colors)
+                if len(colors) == 1:
+                    colors.append((0, 0, 0))  # 添加黑色作为第二种颜色
+                else:
+                    colors = [(255, 255, 255), (0, 0, 0)]  # 使用默认的黑白渐变
+            
+            # 创建渐变数组
+            gradient = np.zeros((height, width, 4), dtype=np.uint8)
+            
+            # 粉红色保护：检查渐变是否包含粉红色或紫色调，如果有，增强它
+            has_pink = False
+            for color in colors:
+                r, g, b = color
+                # 检查是否是粉红色/紫色调
+                if r > 200 and b > 140 and g < 180:
+                    has_pink = True
+                    # 确保该颜色在最终渐变中被增强
+                    print(f"[EffectsProcessor] 检测到粉红色/紫色调: {color}, 将增强它")
+                    break
+            
+            # 为每个像素计算渐变值
+            for y in range(height):
+                for x in range(width):
+                    # 计算沿角度方向的位置
+                    distance = x * cos_angle + y * sin_angle
+                    
+                    # 归一化到[0,1]范围
+                    max_distance = width * abs(cos_angle) + height * abs(sin_angle)
+                    if max_distance == 0:
+                        position = 0  # 避免除以零
+                    else:
+                        position = distance / max_distance
+                        
+                    # 确保位置在[0,1]范围内
+                    position = max(0, min(1, position))
+                    
+                    # 如果有两种颜色，则在它们之间内插
+                    if len(colors) == 2:
+                        r = int((1 - position) * colors[0][0] + position * colors[1][0])
+                        g = int((1 - position) * colors[0][1] + position * colors[1][1])
+                        b = int((1 - position) * colors[0][2] + position * colors[1][2])
+                        
+                        # 如果有粉红色，更生动地显示它
+                        if has_pink and r > 200 and b > 140 and g < 180:
+                            # 增强粉红/紫色调
+                            r = min(255, int(r * 1.1))
+                            b = min(255, int(b * 1.05))
+                            
+                        gradient[y, x, 0] = r
+                        gradient[y, x, 1] = g
+                        gradient[y, x, 2] = b
+                        gradient[y, x, 3] = 255  # 完全不透明
+                    else:
+                        # 如果有多种颜色，找到相应的段
+                        segment_count = len(colors) - 1
+                        segment_position = position * segment_count
+                        segment_index = int(segment_position)
+                        segment_position -= segment_index
+                        
+                        # 确保索引在有效范围内
+                        segment_index = min(segment_index, segment_count - 1)
+                        
+                        # 在当前段的两个颜色之间进行内插
+                        r = int((1 - segment_position) * colors[segment_index][0] + 
+                                segment_position * colors[segment_index + 1][0])
+                        g = int((1 - segment_position) * colors[segment_index][1] + 
+                                segment_position * colors[segment_index + 1][1])
+                        b = int((1 - segment_position) * colors[segment_index][2] + 
+                                segment_position * colors[segment_index + 1][2])
+                        
+                        # 如果有粉红色，增强它
+                        if has_pink and r > 200 and b > 140 and g < 180:
+                            r = min(255, int(r * 1.1))
+                            b = min(255, int(b * 1.05))
+                            
+                        gradient[y, x, 0] = r
+                        gradient[y, x, 1] = g
+                        gradient[y, x, 2] = b
+                        gradient[y, x, 3] = 255  # 完全不透明
+                        
+            # 将强度应用于渐变
+            if intensity != 1.0:
+                # 使颜色更加鲜艳
+                for y in range(height):
+                    for x in range(width):
+                        for c in range(3):  # Only apply to RGB, not alpha
+                            gradient[y, x, c] = int(min(255, gradient[y, x, c] * intensity))
+            
+            # 转换为PIL图像
+            gradient_img = Image.fromarray(gradient, mode='RGBA')
+            return gradient_img
+        except Exception as e:
+            print(f"[EffectsProcessor] 创建线性渐变时出错: {e}")
+            # 创建一个简单的回退渐变
+            gradient_img = Image.new('RGBA', (width, height), (255, 255, 255, 255))
+            return gradient_img
+
+    def _create_radial_gradient(self, width, height, colors, intensity=1.0):
+        """Create a radial gradient given colors and intensity."""
+        try:
+            # 创建渐变数组
+            gradient = np.zeros((height, width, 4), dtype=np.uint8)
+            
+            # 粉红色保护：检查渐变是否包含粉红色或紫色调，如果有，增强它
+            has_pink = False
+            for color in colors:
+                r, g, b = color
+                # 检查是否是粉红色/紫色调
+                if r > 200 and b > 140 and g < 180:
+                    has_pink = True
+                    # 确保该颜色在最终渐变中被增强
+                    print(f"[EffectsProcessor] 检测到粉红色/紫色调: {color}, 将增强它")
+                    break
+            
+            # 为每个像素计算渐变值
+            for y in range(height):
+                for x in range(width):
+                    # 计算距离
+                    distance = math.sqrt((x - width / 2) ** 2 + (y - height / 2) ** 2)
+                    
+                    # 归一化到[0,1]范围
+                    max_distance = max(width, height) / 2
+                    if max_distance == 0:
+                        position = 0  # 避免除以零
+                    else:
+                        position = distance / max_distance
+                        
+                    # 确保位置在[0,1]范围内
+                    position = max(0, min(1, position))
+                    
+                    # 如果有两种颜色，则在它们之间内插
+                    if len(colors) == 2:
+                        r = int((1 - position) * colors[0][0] + position * colors[1][0])
+                        g = int((1 - position) * colors[0][1] + position * colors[1][1])
+                        b = int((1 - position) * colors[0][2] + position * colors[1][2])
+                        
+                        # 如果有粉红色，更生动地显示它
+                        if has_pink and r > 200 and b > 140 and g < 180:
+                            # 增强粉红/紫色调
+                            r = min(255, int(r * 1.1))
+                            b = min(255, int(b * 1.05))
+                            
+                        gradient[y, x, 0] = r
+                        gradient[y, x, 1] = g
+                        gradient[y, x, 2] = b
+                        gradient[y, x, 3] = 255  # 完全不透明
+                    else:
+                        # 如果有多种颜色，找到相应的段
+                        segment_count = len(colors) - 1
+                        segment_position = position * segment_count
+                        segment_index = int(segment_position)
+                        segment_position -= segment_index
+                        
+                        # 确保索引在有效范围内
+                        segment_index = min(segment_index, segment_count - 1)
+                        
+                        # 在当前段的两个颜色之间进行内插
+                        r = int((1 - segment_position) * colors[segment_index][0] + 
+                                segment_position * colors[segment_index + 1][0])
+                        g = int((1 - segment_position) * colors[segment_index][1] + 
+                                segment_position * colors[segment_index + 1][1])
+                        b = int((1 - segment_position) * colors[segment_index][2] + 
+                                segment_position * colors[segment_index + 1][2])
+                        
+                        # 如果有粉红色，增强它
+                        if has_pink and r > 200 and b > 140 and g < 180:
+                            r = min(255, int(r * 1.1))
+                            b = min(255, int(b * 1.05))
+                            
+                        gradient[y, x, 0] = r
+                        gradient[y, x, 1] = g
+                        gradient[y, x, 2] = b
+                        gradient[y, x, 3] = 255  # 完全不透明
+                        
+            # 将强度应用于渐变
+            if intensity != 1.0:
+                # 使颜色更加鲜艳
+                for y in range(height):
+                    for x in range(width):
+                        for c in range(3):  # Only apply to RGB, not alpha
+                            gradient[y, x, c] = int(min(255, gradient[y, x, c] * intensity))
+            
+            # 转换为PIL图像
+            gradient_img = Image.fromarray(gradient, mode='RGBA')
+            return gradient_img
+        except Exception as e:
+            print(f"[EffectsProcessor] 创建径向渐变时出错: {e}")
+            # 创建一个简单的回退渐变
+            gradient_img = Image.new('RGBA', (width, height), (255, 255, 255, 255))
+            return gradient_img

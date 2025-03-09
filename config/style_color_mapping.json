@@ -1,0 +1,62 @@
+{
+  "color_style_mapping": {
+    "red": [
+      "fire-orange-red",
+      "classic-black-gold"
+    ],
+    "orange": [
+      "fire-orange-red",
+      "classic-black-gold"
+    ],
+    "yellow": [
+      "fire-orange-red",
+      "classic-black-gold"
+    ],
+    "green": [
+      "natural-green"
+    ],
+    "cyan": [
+      "neon-blue-pink",
+      "metallic-silver-blue"
+    ],
+    "blue": [
+      "neon-blue-pink",
+      "metallic-silver-blue",
+      "all-effects-test"
+    ],
+    "purple": [
+      "elegant-purple-gold",
+      "dreamy-pink-purple"
+    ],
+    "pink": [
+      "dreamy-pink-purple",
+      "neon-blue-pink"
+    ],
+    "brown": [
+      "classic-black-gold",
+      "fire-orange-red"
+    ],
+    "white": [
+      "metallic-silver-blue",
+      "all-effects-test"
+    ],
+    "black": [
+      "classic-black-gold",
+      "metallic-silver-blue"
+    ],
+    "gray": [
+      "metallic-silver-blue",
+      "classic-black-gold"
+    ]
+  },
+  "style_descriptions": {
+    "all-effects-test": "基础测试样式 - 蓝白渐变填充和红黄描边",
+    "elegant-purple-gold": "优雅紫金样式 - 金色到深紫渐变",
+    "neon-blue-pink": "霓虹蓝粉样式 - 明亮的青蓝到粉红渐变",
+    "fire-orange-red": "火焰红橙样式 - 黄色到橙红热烈渐变",
+    "natural-green": "自然绿色样式 - 舒适的浅绿到深绿渐变",
+    "metallic-silver-blue": "金属银蓝样式 - 银色到钢蓝的冷金属风格",
+    "classic-black-gold": "经典黑金样式 - 奢华的金色到黑色渐变",
+    "dreamy-pink-purple": "梦幻粉紫样式 - 柔和的粉色到紫色渐变"
+  }
+}
