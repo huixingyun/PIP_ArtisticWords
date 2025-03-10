@@ -91,10 +91,39 @@ class EffectsProcessor:
             colors = fill.get('colors', ['#FFFFFF', '#0066FF'])  # 默认为白色到蓝色渐变
             if isinstance(colors, str):
                 colors = [colors, '#0066FF']  # 如果只有一个颜色，创建从该颜色到蓝色的渐变
-                
-            angle = fill.get('angle', 90)  # SVG默认是从上到下的渐变
             
-            print(f"[Style: {style_name}] 渐变填充颜色: {colors}, 角度: {angle}")
+            # 处理渐变角度 - 支持SVG渐变方向
+            angle = 90  # 默认从上到下（SVG: y1=0% -> y2=100%）
+            
+            # 检查是否有明确指定的SVG样式方向
+            svg_direction = fill.get('svg_direction', None)
+            if svg_direction:
+                # 解析SVG方向参数 x1,y1 -> x2,y2
+                try:
+                    x1 = float(svg_direction.get('x1', 50)) / 100  # 转换为0-1范围
+                    y1 = float(svg_direction.get('y1', 0)) / 100
+                    x2 = float(svg_direction.get('x2', 50)) / 100
+                    y2 = float(svg_direction.get('y2', 100)) / 100
+                    
+                    # 计算角度 - arctan2 返回弧度，convert to degrees
+                    if x2 != x1 or y2 != y1:  # 避免除以零
+                        angle_rad = math.atan2(y2 - y1, x2 - x1)
+                        angle = math.degrees(angle_rad)
+                        # 调整角度，使0度指向右侧（标准坐标系）
+                        angle = (angle + 90) % 360  # 旋转坐标系使y轴向下
+                    
+                    print(f"[Style: {style_name}] 从SVG方向解析的渐变角度: {angle}°")
+                except (ValueError, TypeError) as e:
+                    print(f"无法解析SVG方向: {e}, 使用默认角度")
+            else:
+                # 使用直接指定的角度
+                angle = fill.get('angle', 90)
+            
+            # 检查是否是径向渐变
+            if fill.get('type') == 'radial':
+                angle = 'radial'
+            
+            print(f"[Style: {style_name}] 渐变填充颜色: {colors}, 角度/类型: {angle}")
             
             # 创建渐变图像 - 使用整个图像尺寸
             gradient_img = self._create_gradient(
@@ -396,19 +425,51 @@ class EffectsProcessor:
         # Use vectorized calculations instead of loops
         x, y = np.meshgrid(np.arange(width), np.arange(height))
         
-        if isinstance(angle, str) and angle == 'radial':
-            # 径向渐变
-            pos = np.sqrt((x - width/2)**2 + (y - height/2)**2)
-            pos = pos / np.max(pos)  # 归一化到[0,1]范围
-        else:
-            # 线性渐变
-            angle_rad = np.radians(angle)
-            pos = ((x - width/2) * np.cos(angle_rad) + (y - height/2) * np.sin(angle_rad))
-            pos = (pos - np.min(pos)) / (np.max(pos) - np.min(pos))  # 归一化到[0,1]范围
+        # 处理不同的渐变类型
+        if isinstance(angle, str):
+            if angle == 'radial':  # 径向渐变
+                pos = np.sqrt((x - width/2)**2 + (y - height/2)**2)
+                pos = pos / np.max(pos)  # 归一化到[0,1]范围
+            else:
+                # 如果是字符串但不是'radial'，尝试转换为数字
+                try:
+                    angle = float(angle)
+                except ValueError:
+                    print(f"无法解析渐变角度: {angle}，使用默认值90度")
+                    angle = 90
+        
+        if not isinstance(angle, str):
+            # 线性渐变 - 调整角度方向以匹配SVG
+            # SVG中，0度表示从左到右，90度表示从上到下
+            # 调整角度方向，使0度指向右侧（标准坐标系）
+            angle_rad = np.radians(angle - 90)  # 旋转坐标系使y轴向下
+            
+            # 创建梯度场
+            gradient_vector = np.array([np.cos(angle_rad), np.sin(angle_rad)])
+            
+            # 计算每个点在渐变方向上的投影
+            x_norm = (x - width/2) / width if width > 0 else 0
+            y_norm = (y - height/2) / height if height > 0 else 0
+            
+            # 计算渐变位置
+            pos = x_norm * gradient_vector[0] + y_norm * gradient_vector[1]
+            
+            # 归一化到[0,1]
+            pos = (pos - np.min(pos)) / (np.max(pos) - np.min(pos) + 1e-8) if np.max(pos) > np.min(pos) else np.zeros_like(pos) + 0.5
+            
+            # 打印渐变方向调试信息
+            print(f"渐变角度: {angle}度, 方向向量: [{gradient_vector[0]:.2f}, {gradient_vector[1]:.2f}]")
         
         # 插值生成渐变
-        for i in range(3):  # RGB通道
-            gradient[..., i] = np.interp(pos, [0, 1], [colors[0][i], colors[1][i]])
+        if len(colors) == 2:
+            # 简单的两点渐变
+            for i in range(3):  # RGB通道
+                gradient[..., i] = np.interp(pos, [0, 1], [colors[0][i], colors[1][i]])
+        else:
+            # 多点渐变支持
+            color_positions = np.linspace(0, 1, len(colors))
+            for i in range(3):  # RGB通道
+                gradient[..., i] = np.interp(pos, color_positions, [color[i] for color in colors])
         
         return Image.fromarray(gradient, 'RGB')
 
@@ -506,13 +567,81 @@ class EffectsProcessor:
         # Get the text mask
         mask = img.split()[3]
         
+        # 如果未提供style_name，尝试从style字典中获取，如果都没有则使用默认值
+        if style_name is None:
+            style_name = style.get('name', 'unknown')
+        
         # Handle gradient outline
-        gradient = style.get('outline', {})
-        width = float(gradient.get('width', 0))
-        opacity = float(gradient.get('opacity', 1.0))
+        outline_data = style.get('outline', {})
+        width = float(outline_data.get('width', 0))
+        opacity = float(outline_data.get('opacity', 1.0))
+        
+        # 获取渐变对象，确保在此之后不要覆盖它
+        gradient = None
+        if 'gradient' in outline_data:
+            gradient = outline_data['gradient']
+        else:
+            gradient = outline_data
         
         print(f"[EffectsProcessor] 渐变描边详情 - 宽度: {width}, 透明度: {opacity}, 渐变类型: {gradient.get('type', 'linear')}")
-        print(f"[EffectsProcessor] 渐变颜色: {gradient.get('colors', ['#FF0000', '#FFFF00'])}")
+        
+        # 获取颜色信息，这里仅获取原始16进制颜色用于日志显示
+        hex_colors = gradient.get('colors', ['#EE2883', '#FFDC7D'])  # 使用设计指定的粉色到黄色渐变作为默认值
+        print(f"[EffectsProcessor] 渐变颜色: {hex_colors}")
+        
+        # 处理渐变角度 - 支持SVG渐变方向
+        angle = 0  # 默认从左到右（SVG: x1=0% -> x2=100%, y相同）
+        
+        # 检查渐变方向类型
+        direction = gradient.get('direction', 'left_right')
+        
+        # 如果是SVG定义的方向，检查是否包含x1,y1,x2,y2坐标
+        if direction == 'custom' and 'svg_coords' in gradient:
+            svg_coords = gradient['svg_coords']
+            try:
+                x1 = float(svg_coords.get('x1', 0)) / 100  # 转换为0-1范围
+                y1 = float(svg_coords.get('y1', 0)) / 100
+                x2 = float(svg_coords.get('x2', 100)) / 100
+                y2 = float(svg_coords.get('y2', 0)) / 100
+                
+                # 计算角度 - arctan2 返回弧度，convert to degrees
+                if x2 != x1 or y2 != y1:  # 避免除以零
+                    dx = x2 - x1
+                    dy = y2 - y1
+                    
+                    # 在PIL中，y轴向下为正方向，所以反转y差值
+                    angle_rad = math.atan2(-dy, dx)  # 注意这里反转y轴方向
+                    angle = math.degrees(angle_rad)
+                    # 调整角度到0-360范围
+                    angle = (angle + 360) % 360
+                
+                print(f"[Style: {style_name}] 从SVG坐标解析的描边渐变角度: {angle}°, 方向向量: [{dx:.2f}, {dy:.2f}]")
+            except (ValueError, TypeError) as e:
+                print(f"无法解析描边SVG坐标: {e}, 使用默认角度")
+        # 处理预定义的方向
+        elif direction == 'left_right':
+            angle = 0  # 水平从左到右
+        elif direction == 'right_left':
+            angle = 180  # 水平从右到左
+        elif direction == 'top_bottom':
+            angle = 90  # 垂直从上到下
+        elif direction == 'bottom_top':
+            angle = 270  # 垂直从下到上
+        elif direction == 'diagonal':
+            angle = 45  # 对角线 左上到右下
+        elif direction == 'diagonal_reverse':
+            angle = 225  # 对角线 右下到左上
+        elif direction == 'diagonal_bottom':
+            angle = 315  # 对角线 左下到右上
+        elif direction == 'diagonal_bottom_reverse':
+            angle = 135  # 对角线 右上到左下
+        else:
+            # 使用直接指定的角度
+            angle = gradient.get('angle', 0)
+        
+        # 检查是否是径向渐变
+        if gradient.get('type') == 'radial':
+            angle = 'radial'
         
         # Create outline by dilating the mask
         dilated_mask = mask.copy()
@@ -535,20 +664,12 @@ class EffectsProcessor:
         # 转换为PIL Image
         outline_only_mask = Image.fromarray(outline_only_mask_array)
         
-        # 如果未提供style_name，尝试从style字典中获取，如果都没有则使用默认值
-        if style_name is None:
-            style_name = style.get('name', 'unknown')
-        
         # 保存调试图像    
         self._save_debug_image(outline_only_mask, f"debug_{style_name}_outline_mask.png")
         
-        # Create gradient for outline
-        colors = gradient.get('colors', ['#FF0000', '#FFFF00'])
-        angle = gradient.get('angle', 0)
-        
-        # Convert hex colors to RGB
+        # 将HEX颜色转换为RGB (只处理一次颜色，不重复处理)
         rgb_colors = []
-        for color in colors:
+        for color in hex_colors:
             if isinstance(color, str) and color.startswith('#'):
                 # Convert hex to RGB
                 r = int(color[1:3], 16)
@@ -558,12 +679,16 @@ class EffectsProcessor:
             elif isinstance(color, (list, tuple)) and len(color) == 3:
                 rgb_colors.append(color)
             else:
-                rgb_colors.append((255, 0, 0))  # Default to red if invalid
+                rgb_colors.append((255, 46, 219))  # 默认紫色
         
         if not rgb_colors:
-            rgb_colors = [(255, 0, 0), (255, 255, 0)]  # Default gradient
-            
-        # Create gradient
+            # 只有在列表为空时才使用默认值
+            rgb_colors = [(238, 40, 131), (255, 220, 125)]  # 使用粉色到黄色的默认渐变
+        
+        # 打印最终使用的渐变信息进行调试
+        print(f"[Style: {style_name}] 描边渐变填充颜色: {hex_colors}, 角度/类型: {angle}, 方向: {direction}")
+        
+        # 创建渐变并应用到描边
         gradient_array = self._create_gradient(img.size[0], img.size[1], rgb_colors, angle)
         gradient_img = gradient_array.convert('RGBA')
         gradient_img.putalpha(outline_only_mask)
@@ -646,7 +771,7 @@ class EffectsProcessor:
         
         inner_shadow = style['inner_shadow']
         color = inner_shadow.get('color', '#000000')
-        opacity = inner_shadow.get('opacity', 0.7)
+        opacity = inner_shadow.get('opacity', 1)  # 修改默认透明度为1
         
         # Support different offset value representations
         if 'offset' in inner_shadow:
@@ -656,7 +781,7 @@ class EffectsProcessor:
             offset_x = inner_shadow.get('offset_x', 2)
             offset_y = inner_shadow.get('offset_y', 2)
         
-        blur = inner_shadow.get('blur', 2)
+        blur = inner_shadow.get('blur', 0)  # 修改默认模糊程度为0
         
         print(f"[EffectsProcessor] 应用内阴影效果 - 颜色: {color}, 透明度: {opacity}, 模糊: {blur}")
         print(f"[EffectsProcessor] 内阴影偏移: X={offset_x}, Y={offset_y}")
