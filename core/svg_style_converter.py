@@ -339,7 +339,13 @@ class SVGStyleConverter:
                                             "colors": [stop["color"] for stop in gradient["stops"]],
                                             "direction": gradient["direction"],
                                             "angle": gradient["angle"],
-                                            "intensity": 100
+                                            "intensity": 100,
+                                            "svg_coords": {  # 添加原始SVG坐标数据
+                                                "x1": gradient["x1"] * 100,  # 转换回百分比
+                                                "y1": gradient["y1"] * 100,
+                                                "x2": gradient["x2"] * 100,
+                                                "y2": gradient["y2"] * 100
+                                            }
                                         }
                                     }
                                 }
@@ -377,7 +383,13 @@ class SVGStyleConverter:
                                     "colors": [stop["color"] for stop in gradient["stops"]],
                                     "direction": gradient["direction"],
                                     "angle": gradient["angle"],
-                                    "intensity": 100
+                                    "intensity": 100,
+                                    "svg_coords": {  # 添加原始SVG坐标数据
+                                        "x1": gradient["x1"] * 100,  # 转换回百分比
+                                        "y1": gradient["y1"] * 100,
+                                        "x2": gradient["x2"] * 100,
+                                        "y2": gradient["y2"] * 100
+                                    }
                                 }
                             }
                         }
