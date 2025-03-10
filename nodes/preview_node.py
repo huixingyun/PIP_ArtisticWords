@@ -110,19 +110,10 @@ class TextPreviewNode:
             if outer_glow is not None and outer_glow.get('radius', 0) > 0 and outer_glow.get('intensity', 0) > 0:
                 has_glow = True
                 
-        if has_glow:
-            # 发光效果需要更多空间，增加边距到15%
-            glow_margin = 0.15
-            left = int(width * glow_margin)
-            right = width - int(width * glow_margin)
-            top = int(height * glow_margin)
-            bottom = height - int(height * glow_margin)
-            safe_area = (left, top, right, bottom)
-        
         # Create text renderer and effects processor
         font_size = style_data.get('font_size', 100)
         text_renderer = TextRenderer(font_path, font_size)
-        effects_processor = EffectsProcessor()
+        effects_processor = EffectsProcessor(debug_output=False)  # Disable debug image output
         
         # Render base text image
         base_text_image = text_renderer.create_base_text_image(
