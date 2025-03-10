@@ -7,9 +7,18 @@ import math
 class EffectsProcessor:
     """Processes and applies various text effects based on styles."""
     
-    def __init__(self):
-        """Initialize the effects processor."""
-        pass
+    def __init__(self, debug_output=False):
+        """Initialize the effects processor.
+        
+        Args:
+            debug_output: Whether to save debug images during processing
+        """
+        self.debug_output = debug_output
+        
+    def _save_debug_image(self, img, filename):
+        """Save a debug image if debug_output is enabled."""
+        if self.debug_output:
+            img.save(filename)
     
     def hex_to_rgba(self, hex_color, alpha=255):
         """Convert hex color to RGBA tuple."""
@@ -46,7 +55,7 @@ class EffectsProcessor:
         if 'shadow' in style:
             shadow_img = self.apply_shadow(img, style)
             # 保存用于调试
-            shadow_img.save(f"debug_{style_name}_shadow.png")
+            self._save_debug_image(shadow_img, f"debug_{style_name}_shadow.png")
             layers['shadow'] = shadow_img
             result = Image.alpha_composite(result, shadow_img)
             print(f"[Style: {style_name}] 已应用阴影效果")
@@ -55,7 +64,7 @@ class EffectsProcessor:
         if 'glow' in style:
             glow_img = self.apply_glow(img, style)
             # 保存用于调试
-            glow_img.save(f"debug_{style_name}_glow.png")
+            self._save_debug_image(glow_img, f"debug_{style_name}_glow.png")
             layers['glow'] = glow_img
             result = Image.alpha_composite(result, glow_img)
             print(f"[Style: {style_name}] 已应用发光效果")
@@ -118,7 +127,7 @@ class EffectsProcessor:
             text_fill = Image.merge('RGBA', (r, g, b, text_mask))
             
             # 保存用于调试
-            text_fill.save(f"debug_{style_name}_gradient_fill.png")
+            self._save_debug_image(text_fill, f"debug_{style_name}_gradient_fill.png")
             layers['fill'] = text_fill
             
             print(f"[Style: {style_name}] 已应用文本渐变效果")
@@ -139,7 +148,7 @@ class EffectsProcessor:
             text_fill = Image.merge('RGBA', (color_pixels.split() + (text_mask,)))
             
             # 保存用于调试
-            text_fill.save(f"debug_{style_name}_solid_fill.png")
+            self._save_debug_image(text_fill, f"debug_{style_name}_solid_fill.png")
             layers['fill'] = text_fill
             
             print(f"[Style: {style_name}] 已应用文本颜色填充")
@@ -163,7 +172,7 @@ class EffectsProcessor:
                     print(f"[Style: {style_name}] 已应用普通描边效果")
                 
                 # 保存用于调试
-                outline_img.save(f"debug_{style_name}_outline.png")
+                self._save_debug_image(outline_img, f"debug_{style_name}_outline.png")
                 layers['outline'] = outline_img
         
         # 5. 准备内阴影效果
@@ -174,7 +183,7 @@ class EffectsProcessor:
             inner_shadow_img = self.apply_inner_shadow(inner_shadow_base, style)
             
             # 保存用于调试  
-            inner_shadow_img.save(f"debug_{style_name}_inner_shadow.png")
+            self._save_debug_image(inner_shadow_img, f"debug_{style_name}_inner_shadow.png")
             layers['inner_shadow'] = inner_shadow_img
             
             print(f"[Style: {style_name}] 已应用内阴影效果")
@@ -195,7 +204,7 @@ class EffectsProcessor:
             shadow_glow_layer = Image.alpha_composite(shadow_glow_layer, layers['glow'])
         
         final_result = Image.alpha_composite(final_result, shadow_glow_layer)
-        final_result.save(f"debug_{style_name}_step1_shadow_glow.png")
+        self._save_debug_image(final_result, f"debug_{style_name}_step1_shadow_glow.png")
         print(f"[Style: {style_name}] 已合成阴影和发光图层")
         
         # 2. 文本填充层 - 直接使用text_fill
@@ -203,12 +212,12 @@ class EffectsProcessor:
             # 在黑色背景上查看填充效果用于调试
             bg_debug = Image.new('RGBA', img.size, (0, 0, 0, 255))
             fill_on_black = Image.alpha_composite(bg_debug, text_fill)
-            fill_on_black.save(f"debug_{style_name}_fill_on_black.png")
+            self._save_debug_image(fill_on_black, f"debug_{style_name}_fill_on_black.png")
             
             # 正常合成到结果中
             filled_result = Image.alpha_composite(final_result, text_fill)
             final_result = filled_result
-            final_result.save(f"debug_{style_name}_step2_with_fill.png")
+            self._save_debug_image(final_result, f"debug_{style_name}_step2_with_fill.png")
             print(f"[Style: {style_name}] 已合成填充图层")
         
         # 3. 描边层 - 只添加文本外部的描边部分
@@ -230,17 +239,17 @@ class EffectsProcessor:
                 style_name = style.get('name', 'unknown')
             
             # 保存调试图像    
-            outline_only_mask.save(f"debug_{style_name}_outline_mask.png")
+            self._save_debug_image(outline_only_mask, f"debug_{style_name}_outline_mask.png")
             
             # 创建只含描边部分的图像
             r, g, b, _ = outline_img.split()
             outline_only = Image.merge('RGBA', (r, g, b, outline_only_mask))
-            outline_only.save(f"debug_{style_name}_outline_only.png")
+            self._save_debug_image(outline_only, f"debug_{style_name}_outline_only.png")
             
             # 合成到结果中
             outlined_result = Image.alpha_composite(final_result, outline_only)
             final_result = outlined_result
-            final_result.save(f"debug_{style_name}_step3_with_outline.png")
+            self._save_debug_image(final_result, f"debug_{style_name}_step3_with_outline.png")
             print(f"[Style: {style_name}] 已合成描边图层")
         
         # 4. 内阴影层 - 只在文本区域内
@@ -332,12 +341,12 @@ class EffectsProcessor:
                 edge_mask = Image.fromarray(edge_shifted)
                 
                 # 保存调试图像
-                edge_mask.save(f"debug_{style_name}_inner_shadow_edge_mask.png")
+                self._save_debug_image(edge_mask, f"debug_{style_name}_inner_shadow_edge_mask.png")
                 
                 # 使用边缘蒙版控制内阴影的应用范围 - 不需要反转掩码
                 inner_shadow_masked = Image.merge('RGBA', (inner_r, inner_g, inner_b, edge_mask))
                 
-                inner_shadow_masked.save(f"debug_{style_name}_inner_shadow_masked.png")
+                self._save_debug_image(inner_shadow_masked, f"debug_{style_name}_inner_shadow_masked.png")
             except Exception as e:
                 print(f"创建内阴影边缘蒙版失败，使用默认方式: {e}")
                 inner_mask = Image.fromarray(inner_mask_array)
@@ -350,7 +359,7 @@ class EffectsProcessor:
                 blur_radius = blur_amount / 3.0  # 轻微降低模糊半径，保留细节但平滑边缘
                 inner_shadow_blurred = inner_shadow_masked.filter(ImageFilter.GaussianBlur(radius=blur_radius))
                 # 保存模糊后的内阴影用于调试
-                inner_shadow_blurred.save(f"debug_{style_name}_inner_shadow_blurred.png")
+                self._save_debug_image(inner_shadow_blurred, f"debug_{style_name}_inner_shadow_blurred.png")
             except Exception as e:
                 print(f"应用高斯模糊失败: {e}")
                 inner_shadow_blurred = inner_shadow_masked  # 如果模糊失败，使用原始内阴影
@@ -362,7 +371,7 @@ class EffectsProcessor:
             try:
                 result_with_inner_shadow = Image.alpha_composite(final_result, inner_shadow_blurred)
                 final_result = result_with_inner_shadow
-                final_result.save(f"debug_{style_name}_step4_with_inner_shadow.png")
+                self._save_debug_image(final_result, f"debug_{style_name}_step4_with_inner_shadow.png")
                 print(f"[Style: {style_name}] 已合成内阴影图层")
             except Exception as e:
                 print(f"内阴影合成出错: {e}")
@@ -370,12 +379,12 @@ class EffectsProcessor:
                 final_result = backup_result
         
         # 最终结果
-        final_result.save(f"debug_{style_name}_final.png")
+        self._save_debug_image(final_result, f"debug_{style_name}_final.png")
         
         # 带黑色背景版本
         bg = Image.new('RGBA', img.size, (0, 0, 0, 255))
         with_bg = Image.alpha_composite(bg, final_result)
-        with_bg.save(f"debug_{style_name}_with_bg.png")
+        self._save_debug_image(with_bg, f"debug_{style_name}_with_bg.png")
         
         print(f"[Style: {style_name}] 所有效果应用完成")
         return final_result
@@ -531,7 +540,7 @@ class EffectsProcessor:
             style_name = style.get('name', 'unknown')
         
         # 保存调试图像    
-        outline_only_mask.save(f"debug_{style_name}_outline_mask.png")
+        self._save_debug_image(outline_only_mask, f"debug_{style_name}_outline_mask.png")
         
         # Create gradient for outline
         colors = gradient.get('colors', ['#FF0000', '#FFFF00'])
@@ -561,7 +570,7 @@ class EffectsProcessor:
         
         # Composite images
         result = Image.alpha_composite(outline_img, gradient_img)
-        result.save(f"debug_{style_name}_outline_only.png")
+        self._save_debug_image(result, f"debug_{style_name}_outline_only.png")
         
         return result
         
@@ -600,7 +609,8 @@ class EffectsProcessor:
         glow_layer.putalpha(expanded_mask)
         
         # Apply blur for the glow effect
-        glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius))
+        if radius > 0:
+            glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(radius))
         
         # Enhance glow intensity
         enhanced_intensity = min(intensity * 1.2, 1.0)
@@ -698,5 +708,15 @@ class EffectsProcessor:
         result = Image.new('RGBA', img.size, (0, 0, 0, 0))
         result = Image.alpha_composite(result, original)
         result = Image.alpha_composite(result, shadow_layer)
+        
+        return result
+
+        texture_img = texture_img.resize(img.size)
+        
+        # Apply texture
+        result = Image.alpha_composite(img, texture_img)
+        
+        # Save debug image
+        self._save_debug_image(result, f"debug_texture_result.png")
         
         return result
