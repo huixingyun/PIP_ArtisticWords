@@ -1,0 +1,15 @@
+[project]
+name = "pip_artisticwords"
+description = "A powerful ComfyUI extension node that allows you to add various exquisite artistic text effects to your images, supporting a wide range of text styles and effects."
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["Pillow>=9.0.0", "numpy>=1.20.0", "opencv-python>=4.5.0", "# ComfyUI已经依赖的库，如果单独使用本节点包请确保安装", "# torch", "# torchvision"]
+
+[project.urls]
+Repository = "https://github.com/chenpipi0807/PIP_ArtisticWords"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = ""
+DisplayName = "PIP_ArtisticWords"
+Icon = ""
