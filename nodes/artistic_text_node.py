@@ -154,29 +154,6 @@ class ArtisticTextNode:
             if outer_glow is not None and outer_glow.get('radius', 0) > 0 and outer_glow.get('intensity', 0) > 0:
                 has_glow = True
         
-        if has_glow:
-            # 发光效果需要更多空间，增加边距
-            # 根据用户提供的边距适当增加，但确保至少有一个最小值
-            glow_margin_multiplier = 1.5  # 增加50%额外空间
-            
-            # 计算新的安全区域，但保持纵横比例关系
-            left = int(width * margin_left * glow_margin_multiplier)
-            right = width - int(width * margin_right * glow_margin_multiplier)
-            top = int(height * margin_top * glow_margin_multiplier)
-            bottom = height - int(height * margin_bottom * glow_margin_multiplier)
-            
-            # 确保不会超出图像边界
-            left = max(0, min(left, width // 4))
-            right = min(width, max(right, width - width // 4))
-            top = max(0, min(top, height // 4))
-            bottom = min(height, max(bottom, height - height // 4))
-            
-            safe_area = (left, top, right, bottom)
-            
-            if debug_info != "none":
-                print(f"[PIP_ArtisticWords] 检测到发光效果，增加安全区域边距")
-                print(f"[PIP_ArtisticWords] 调整后安全区域: 左={left}, 上={top}, 右={right}, 下={bottom}")
-        
         if debug_info != "none":
             print(f"[PIP_ArtisticWords] Image dimensions: {width}x{height}")
             print(f"[PIP_ArtisticWords] Safe area: {safe_area}")
