@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800px" height="450px" viewBox="0 0 800 450" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>PIP Text Style</title>
+    <defs>
+        <!-- 文本定义 -->
+        <text id="text-main" font-family="Knewave-Regular, sans-serif" font-size="88" font-weight="normal">
+            <tspan x="400" y="225" text-anchor="middle">Beautiful Rachel Green</tspan>
+        </text>
+
+        <!-- 文本填充渐变 - 矩阵绿渐变 -->
+        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="fillGradient">
+            <stop stop-color="#00FF41" offset="0%"></stop>
+            <stop stop-color="#00C853" offset="50%"></stop>
+            <stop stop-color="#009624" offset="100%"></stop>
+        </linearGradient>
+
+        <!-- 描边渐变 - 深绿色描边 -->
+        <linearGradient x1="0%" y1="0%" x2="100%" y2="100%" id="strokeGradient">
+            <stop stop-color="#004D40" offset="0%"></stop>
+            <stop stop-color="#002620" offset="100%"></stop>
+        </linearGradient>
+
+        <!-- 阴影效果 - 黑色阴影 -->
+        <filter x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox" id="shadow-filter">
+            <feOffset dx="8" dy="8" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="4.0" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0.0   0 0 0 0 0.0   0 0 0 0.0  0 0 0 0.7 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+
+        <!-- 内阴影效果 - 深绿色内阴影 -->
+        <filter x="-10%" y="-10%" width="120%" height="120%" filterUnits="objectBoundingBox" id="inner-shadow-filter">
+            <feOffset dx="2" dy="2" in="SourceAlpha" result="shadowOffset"></feOffset>
+            <feComposite in="shadowOffset" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowDifference"></feComposite>
+            <feGaussianBlur stdDeviation="1.5" in="shadowDifference" result="shadowBlur"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0.0   0 0 0 0 0.2   0 0 0 0.0  0 0 0 0.7 0" type="matrix" in="shadowBlur"></feColorMatrix>
+        </filter>
+
+        <!-- 外发光效果 - 科技绿发光 -->
+        <filter x="-20%" y="-20%" width="140%" height="140%" filterUnits="objectBoundingBox" id="glow-filter">
+            <feGaussianBlur stdDeviation="15" in="SourceAlpha" result="glowBlur"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0.0   0 0 0 0 1.0   0 0 0 0.4  0 0 0 0.8 0" type="matrix" in="glowBlur"></feColorMatrix>
+        </filter>
+
+    </defs>
+    <g id="PIP-Text-Group" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="PIP-Text-Effects" fill-rule="nonzero">
+            <!-- 投影层 -->
+            <use id="shadow-use" filter="url(#shadow-filter)" xlink:href="#text-main"></use>
+
+            <!-- 外发光层 -->
+            <use id="glow-use" filter="url(#glow-filter)" xlink:href="#text-main"></use>
+
+            <!-- 填充层 -->
+            <use id="fill-use" fill="url(#fillGradient)" xlink:href="#text-main"></use>
+
+            <!-- 描边层 -->
+            <use id="stroke-use" stroke="url(#strokeGradient)" stroke-width="3" xlink:href="#text-main"></use>
+
+            <!-- 内阴影层 -->
+            <use id="inner-shadow-use" filter="url(#inner-shadow-filter)" xlink:href="#text-main"></use>
+
+        </g>
+    </g>
+</svg>
