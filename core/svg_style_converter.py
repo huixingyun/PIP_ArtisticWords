@@ -716,9 +716,14 @@ class SVGStyleConverter:
                     # 提取发光参数
                     blur_std = float(blur_component.get("stdDeviation", 5))
                     
-                    # 默认值
-                    color = "#ff2edb"  # 默认发光颜色（粉红色）
+                    # 默认值 - 使用绿色作为默认发光颜色
+                    color = "#00ff4c"  # 默认发光颜色（绿色）
                     intensity = 1.0
+                    
+                    # 检查SVG文件名是否包含"emerald"或"forest"，如果是则使用绿色
+                    if hasattr(self, 'style_name') and self.style_name:
+                        if 'emerald' in self.style_name.lower() or 'forest' in self.style_name.lower():
+                            color = "#00ff4c"  # 使用绿色
                     
                     # 检查color matrix是否有定义颜色
                     if color_matrix and color_matrix.get("values"):
@@ -731,10 +736,17 @@ class SVGStyleConverter:
                             
                             # 如果颜色值存在
                             if r or g or b:
-                                # 检查是否是粉红色系
-                                if r > 0.5 and g < 0.3 and b > 0.5:
-                                    color = "#ff2edb"  # 使用粉红色
-                                    intensity = 1.5  # 增强粉红色发光强度
+                                # 检查是否是绿色系
+                                if g > 0.5 and r < 0.3 and b < 0.3:
+                                    color = "#00ff4c"  # 使用绿色
+                                    intensity = 1.5  # 增强绿色发光强度
+                                # 检查是否是粉红色系 - 保留这个检查但不再硬编码为粉红色
+                                elif r > 0.5 and g < 0.3 and b > 0.5:
+                                    # 使用实际RGB值创建颜色，而不是硬编码为粉红色
+                                    r_hex = min(255, int(r * 255))
+                                    g_hex = min(255, int(g * 255))
+                                    b_hex = min(255, int(b * 255))
+                                    color = f"#{r_hex:02x}{g_hex:02x}{b_hex:02x}"
                                 else:
                                     # 根据RGB值创建颜色
                                     r_hex = min(255, int(r * 255))
