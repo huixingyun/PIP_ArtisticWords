@@ -1,62 +1,79 @@
 {
   "color_style_mapping": {
     "red": [
-      "fire-orange-red",
-      "classic-black-gold"
+      "new-fire-ice",
+      "new-amber-glow",
+      "new-retro-vintage"
     ],
     "orange": [
-      "fire-orange-red",
-      "classic-black-gold"
+      "new-fire-ice",
+      "new-amber-glow",
+      "new-luxury-gold"
     ],
     "yellow": [
-      "fire-orange-red",
-      "classic-black-gold"
+      "new-luxury-gold",
+      "new-amber-glow",
+      "new-retro-vintage"
     ],
     "green": [
-      "natural-green"
+      "new-emerald-forest",
+      "new-matrix-code",
+      "new-pastel-dream"
     ],
     "cyan": [
-      "neon-blue-pink",
-      "metallic-silver-blue"
+      "new-deep-ocean",
+      "new-cyberpunk",
+      "new-matrix-code"
     ],
     "blue": [
-      "neon-blue-pink",
-      "metallic-silver-blue",
-      "all-effects-test"
+      "new-cyberpunk",
+      "new-deep-ocean",
+      "new-fire-ice"
     ],
     "purple": [
-      "elegant-purple-gold",
-      "dreamy-pink-purple"
+      "new-royal-purple",
+      "new-cyberpunk",
+      "new-retro-vintage"
     ],
     "pink": [
-      "dreamy-pink-purple",
-      "neon-blue-pink"
+      "new-cherry-blossom",
+      "new-kawaii-bubble",
+      "new-pastel-dream"
     ],
     "brown": [
-      "classic-black-gold",
-      "fire-orange-red"
+      "new-luxury-gold",
+      "new-amber-glow",
+      "new-retro-vintage"
     ],
     "white": [
-      "metallic-silver-blue",
-      "all-effects-test"
+      "new-platinum-chrome",
+      "new-cherry-blossom",
+      "new-pastel-dream"
     ],
     "black": [
-      "classic-black-gold",
-      "metallic-silver-blue"
+      "new-platinum-chrome",
+      "new-deep-ocean",
+      "new-matrix-code"
     ],
     "gray": [
-      "metallic-silver-blue",
-      "classic-black-gold"
+      "new-platinum-chrome",
+      "new-deep-ocean",
+      "new-retro-vintage"
     ]
   },
   "style_descriptions": {
-    "all-effects-test": "基础测试样式 - 蓝白渐变填充和红黄描边",
-    "elegant-purple-gold": "优雅紫金样式 - 金色到深紫渐变",
-    "neon-blue-pink": "霓虹蓝粉样式 - 明亮的青蓝到粉红渐变",
-    "fire-orange-red": "火焰红橙样式 - 黄色到橙红热烈渐变",
-    "natural-green": "自然绿色样式 - 舒适的浅绿到深绿渐变",
-    "metallic-silver-blue": "金属银蓝样式 - 银色到钢蓝的冷金属风格",
-    "classic-black-gold": "经典黑金样式 - 奢华的金色到黑色渐变",
-    "dreamy-pink-purple": "梦幻粉紫样式 - 柔和的粉色到紫色渐变"
+    "new-cyberpunk": "赛博朋克风格 - 霓虹蓝紫色填充和粉色描边",
+    "new-luxury-gold": "奢华金色风格 - 精致的金色渐变和棕色描边",
+    "new-pastel-dream": "梦幻柔和风格 - 柔和的粉蓝薄荷色渐变",
+    "new-fire-ice": "冰火对比风格 - 从火红到冰蓝的强烈对比",
+    "new-emerald-forest": "翠绿森林风格 - 鲜明的绿色渐变和嫩绿发光",
+    "new-royal-purple": "皇家紫色风格 - 高贵的紫色渐变和深紫描边",
+    "new-cherry-blossom": "樱花粉色风格 - 柔美的粉色系渐变",
+    "new-platinum-chrome": "铂金铬合金风格 - 高级灰色金属质感",
+    "new-retro-vintage": "复古怀旧风格 - 橙粉紫色调渐变",
+    "new-deep-ocean": "深海蓝色风格 - 从深蓝到浅蓝的渐变",
+    "new-amber-glow": "琥珀光芒风格 - 黄橙色系渐变和金色发光",
+    "new-matrix-code": "矩阵代码风格 - 电子绿色渐变和黑色阴影",
+    "new-kawaii-bubble": "萌系泡泡风格 - 粉色系渐变和明亮发光"
   }
 }
