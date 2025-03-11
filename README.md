@@ -1,6 +1,7 @@
 # PIP Artistic Words for ComfyUI - 艺术文字生成器
 
 一款强大的ComfyUI扩展节点，能够为您的图像添加各种精美的艺术文字效果，支持丰富的文字样式和特效。
+【字体版权问题请自行了解后使用】
 
 ## ✨ 特色功能
 ![微信截图_20250311110539](https://github.com/user-attachments/assets/7906acb5-6532-4ae7-a0d3-354bb20df90d)
