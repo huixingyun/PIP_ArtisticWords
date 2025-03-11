@@ -10,6 +10,7 @@ from ..core.text_renderer import TextRenderer
 from ..core.effects_processor import EffectsProcessor
 from ..core.style_color_manager import StyleColorManager
 from ..utils.tensor_utils import tensor_to_pil, pil_to_tensor, create_alpha_mask
+from ..utils.font_manager import FontManager
 
 
 class ArtisticTextNode:
@@ -18,6 +19,7 @@ class ArtisticTextNode:
     @classmethod
     def INPUT_TYPES(cls):
         # Get available styles
+        from ..core.style_manager import StyleManager
         style_manager = StyleManager()
         style_names = style_manager.get_style_names()
         
@@ -68,8 +70,21 @@ class ArtisticTextNode:
         # Set random seed for reproducibility
         random.seed(seed)
         
+        # Get image dimensions
+        if len(image.shape) == 4:  # BHWC
+            height = image.shape[1]
+            width = image.shape[2]
+        else:
+            height = image.shape[0]
+            width = image.shape[1]
+        
+        # 添加输入图像形状信息
+        print(f"[PIP_ArtisticWords] 输入图像形状: {image.shape}")
+        
         # Create style manager and load styles/fonts
+        from ..core.style_manager import StyleManager
         style_manager = StyleManager()
+        font_manager = FontManager()
         
         # Convert tensor to PIL image for processing (need it early for color analysis)
         pil_image = tensor_to_pil(image)
@@ -107,19 +122,19 @@ class ArtisticTextNode:
         else:
             style_data = style_manager.get_style(selected_style_name)
             # 选择字体: 与Preview节点保持一致，使用相同逻辑
-            if 'font' in style_data and style_data['font'] in style_manager.get_font_names():
+            if 'font' in style_data and style_data['font'] in font_manager.get_available_fonts():
                 # 如果样式中指定了字体且该字体存在，则使用指定字体
                 font_name = style_data['font']
             else:
                 # 否则随机选择字体
-                font_name = random.choice(style_manager.get_font_names())
+                font_name = random.choice(font_manager.get_available_fonts())
         
         # 处理尚未设置字体的情况（可能是SVG样式）
         if 'font_name' not in locals() or 'font_name' not in globals():
-            if 'font' in style_data and style_data['font'] in style_manager.get_font_names():
+            if 'font' in style_data and style_data['font'] in font_manager.get_available_fonts():
                 font_name = style_data['font']
             else:
-                font_name = random.choice(style_manager.get_font_names())
+                font_name = random.choice(font_manager.get_available_fonts())
         
         # Print debug information
         if debug_info != "none":
@@ -131,7 +146,7 @@ class ArtisticTextNode:
                 print(f"[PIP_ArtisticWords] Style data: {style_data}")
         
         # Get font path
-        font_path = style_manager.get_font_path(font_name)
+        font_path = font_manager.get_font_path(font_name)
         
         # Calculate safe area based on margins
         left = int(width * margin_left)
@@ -166,7 +181,7 @@ class ArtisticTextNode:
         # Create text renderer and effects processor
         font_size = style_data.get('font_size', 100)
         text_renderer = TextRenderer(font_path, font_size)
-        effects_processor = EffectsProcessor()
+        effects_processor = EffectsProcessor(debug_output=False)
         
         # Render base text image
         base_text_image = text_renderer.create_base_text_image(
@@ -185,109 +200,58 @@ class ArtisticTextNode:
         if debug_info == "detailed":
             print(f"[PIP_ArtisticWords] 应用效果前字体大小: {text_renderer.font_size}")
             print(f"[PIP_ArtisticWords] 样式效果: {[k for k in style_data.keys() if k in ['outline', 'shadow', 'gradient', 'bevel', 'glow', 'inner_shadow']]}")
+            
+            # 渐变填充方向调试
+            if 'fill' in style_data and style_data['fill'].get('type') in ['linear', 'radial']:
+                fill = style_data['fill']
+                print(f"\n[艺术文字节点-填充渐变] 类型: {fill.get('type')}")
+                print(f"[艺术文字节点-填充渐变] 方向: {fill.get('direction')}")
+                print(f"[艺术文字节点-填充渐变] 颜色: {fill.get('colors', [])}")
+            
+            # 外发光调试
+            if 'glow' in style_data:
+                glow = style_data['glow']
+                print(f"\n[艺术文字节点-外发光] 颜色: {glow.get('color')}")
+                print(f"[艺术文字节点-外发光] 不透明度: {glow.get('opacity')}")
+                print(f"[艺术文字节点-外发光] 半径: {glow.get('radius')}")
+                print(f"[艺术文字节点-外发光] 强度: {glow.get('intensity')}")
+            
+            # 内阴影调试
+            if 'inner_shadow' in style_data:
+                inner_shadow = style_data['inner_shadow']
+                print(f"\n[艺术文字节点-内阴影] 颜色: {inner_shadow.get('color')}")
+                print(f"[艺术文字节点-内阴影] 不透明度: {inner_shadow.get('opacity')}")
+                print(f"[艺术文字节点-内阴影] X偏移: {inner_shadow.get('offset_x')}")
+                print(f"[艺术文字节点-内阴影] Y偏移: {inner_shadow.get('offset_y')}")
+                print(f"[艺术文字节点-内阴影] 模糊: {inner_shadow.get('blur')}")
         
-        styled_text_image = effects_processor.apply_all_effects(base_text_image, style_data)
+        styled_text_result = effects_processor.apply_all_effects(base_text_image, style_data, style_name="artistic_text")
         
-        # 创建更智能的alpha通道处理
-        # 不再简单替换alpha通道，而是通过对比和混合保留效果区域
-        if debug_info == "detailed":
-            print(f"[PIP_ArtisticWords] 特效应用后开始处理alpha通道")
-        
-        r, g, b, styled_alpha = styled_text_image.split()
-        _, _, _, base_alpha_copy = base_text_image.split()
-        
-        # 检测样式中是否有发光效果
-        has_glow = False
-        if 'glow' in style_data:
-            # 只有当glow的radius和intensity都大于0时才算有发光效果
-            glow = style_data['glow']
-            if glow is not None and glow.get('radius', 0) > 0 and glow.get('intensity', 0) > 0:
-                has_glow = True
-        
-        if 'outer_glow' in style_data:
-            # 只有当outer_glow的radius和intensity都大于0时才算有发光效果
-            outer_glow = style_data['outer_glow']
-            if outer_glow is not None and outer_glow.get('radius', 0) > 0 and outer_glow.get('intensity', 0) > 0:
-                has_glow = True
-        
-        if has_glow or selected_style_name in ["neon_glow", "fire_effect", "fire_flame", "cyberpunk"]:
-            # 特殊处理那些含有发光效果或特定样式的情况
-            # 对于有发光效果的，我们保留原始styled_alpha通道以展示发光效果
-            if has_glow:
-                effective_alpha = styled_alpha
-                if debug_info == "detailed":
-                    print(f"[PIP_ArtisticWords] 检测到发光效果，保留原始alpha通道")
-            else:
-                # 对于特定样式，扩展原始alpha
-                expanded_alpha = base_alpha_copy.filter(ImageFilter.MaxFilter(20))  # 扩展原始alpha以包含更多发光区域
-                # 使用原始styled_alpha，不过滤低透明度区域，保留发光效果
-                effective_alpha = styled_alpha
-                if debug_info == "detailed":
-                    print(f"[PIP_ArtisticWords] 应用特殊alpha处理给样式: {selected_style_name}")
+        # 修复: apply_all_effects 返回 (image, layers) 元组，我们只需要第一个元素
+        if isinstance(styled_text_result, tuple) and len(styled_text_result) >= 1:
+            styled_text_image = styled_text_result[0]  # 获取结果图像
+            print("[艺术文字节点] 成功从apply_all_effects获取结果图像")
         else:
-            # 通常情况：保留样式效果区域
-            # 1. 保留原始文本区域
-            # 2. 保留原始区域周围的效果（描边、阴影等）
-            
-            # 首先扩展原始alpha创建效果区域
-            effect_area = base_alpha_copy.filter(ImageFilter.MaxFilter(9))  # 扩大几个像素覆盖描边范围
-            
-            # 保留styled_alpha中alpha值大于阈值的区域（过滤掉半透明黑色背景）
-            # 修改：将所有非零alpha值设为255（完全不透明）而不是保留原始透明度值
-            threshold = 40  # 低于这个阈值的透明度会被过滤掉
-            filtered_styled_alpha = styled_alpha.point(lambda x: 255 if x > threshold else 0)
-            
-            # 将两者结合：原始扩展区域中，保留样式alpha中足够明显的部分
-            effective_alpha = ImageChops.multiply(filtered_styled_alpha, effect_area)
-            if debug_info == "detailed":
-                print(f"[PIP_ArtisticWords] 应用标准alpha处理，保留描边和效果")
+            styled_text_image = styled_text_result  # 如果不是元组，直接使用
         
-        # 重建最终图像
-        styled_text_image = Image.merge('RGBA', (r, g, b, effective_alpha))
-        
-        # 检查alpha通道是否正确保留，并根据需要调整不透明度
-        if opacity < 1.0:
-            # Adjust the opacity of the text overlay
-            r, g, b, a = styled_text_image.split()
-            a = a.point(lambda x: int(x * opacity))
-            styled_text_image = Image.merge('RGBA', (r, g, b, a))
-        
-        # 禁用对渐变效果的额外模糊处理（这会产生半透明像素）
-        # Extra processing for styles that often result in black backgrounds
-        # if selected_style_name in ["neon_glow", "fire_effect", "fire_flame", "cyberpunk"] or has_glow:
-        #     # Apply a slight blur to soften transitions for glow effects
-        #     styled_text_image = styled_text_image.filter(ImageFilter.GaussianBlur(0.5))
-        #     if debug_info == "detailed":
-        #         if has_glow:
-        #             print(f"[PIP_ArtisticWords] 应用额外模糊处理优化发光效果")
-        #         else:
-        #             print(f"[PIP_ArtisticWords] 应用额外模糊处理优化特殊样式: {selected_style_name}")
-        
-        if debug_info != "none":
-            alpha_channel = styled_text_image.getchannel('A')
-            print(f"[PIP_ArtisticWords] Alpha channel stats - Min: {alpha_channel.getextrema()[0]}, Max: {alpha_channel.getextrema()[1]}")
-        
-        # Create a new transparent image for the compositing
+        # 创建一个新的透明图像作为结果
         result_image = Image.new('RGBA', pil_image.size, (0, 0, 0, 0))
         
-        # Paste the original image first
+        # 把原始图像粘贴到结果图上
         pil_image_rgba = pil_image.convert('RGBA')
         result_image.paste(pil_image_rgba, (0, 0))
         
-        # Use alpha_composite instead of pixel-by-pixel for better performance
+        # 使用alpha_composite方法合成，这会保留所有特效
         result_image = Image.alpha_composite(result_image, styled_text_image)
         
-        # 确保文本区域完全不透明
-        # 获取结果图像的alpha通道
-        r, g, b, a = result_image.split()
+        # 应用透明度设置
+        if opacity < 1.0:
+            # 调整文字层的透明度
+            r, g, b, a = result_image.split()
+            a = a.point(lambda x: int(x * opacity) if x > 0 else 0)
+            result_image = Image.merge('RGBA', (r, g, b, a))
         
-        # 对于所有alpha值大于0的像素，将其设置为255（完全不透明）
-        final_alpha = a.point(lambda x: 255 if x > 0 else x)
-        
-        # 合并回最终图像
-        result_image = Image.merge('RGBA', (r, g, b, final_alpha))
-        
-        # Convert back to tensor (BHWC format)
+        # 转换回张量 (BHWC 格式)
         result_tensor = pil_to_tensor(result_image)
         
         return (result_tensor,)

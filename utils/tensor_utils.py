@@ -36,7 +36,7 @@ def tensor_to_pil(tensor):
 def pil_to_tensor(img):
     """
     Convert a PIL Image to a PyTorch tensor.
-    Returns tensor in ComfyUI's standard BHWC format with values in [0,1].
+    Returns tensor in ComfyUI's standard BHWC format with float32 [0,1] range.
     
     Args:
         img: PIL Image
@@ -44,6 +44,22 @@ def pil_to_tensor(img):
     Returns:
         PyTorch tensor in BHWC format with float32 [0,1] range
     """
+    # 添加类型检查以避免元组错误
+    if isinstance(img, tuple):
+        print("[警告] pil_to_tensor接收到元组而不是PIL图像，正在提取第一个元素")
+        if len(img) > 0 and hasattr(img[0], 'mode'):
+            img = img[0]  # 尝试使用元组的第一个元素
+        else:
+            print("[错误] 无法从元组中提取有效图像")
+            # 创建一个1x1的黑色图像作为后备方案
+            img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
+    
+    # 检查是否是PIL图像对象
+    if not hasattr(img, 'mode'):
+        print(f"[错误] 无效的图像对象类型: {type(img)}")
+        # 创建一个1x1的黑色图像作为后备方案
+        img = Image.new('RGBA', (1, 1), (0, 0, 0, 0))
+        
     # Convert to RGB or RGBA if needed
     if img.mode not in ('RGB', 'RGBA'):
         if 'A' in img.mode:
