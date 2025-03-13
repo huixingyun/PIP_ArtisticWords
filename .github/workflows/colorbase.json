@@ -1,0 +1,433 @@
+{
+  "last_node_id": 386,
+  "last_link_id": 513,
+  "nodes": [
+    {
+      "id": 377,
+      "type": "LoadImage",
+      "pos": [
+        772.8014526367188,
+        6843.77099609375
+      ],
+      "size": [
+        376.1183166503906,
+        606.7562866210938
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "label": "图像",
+          "type": "IMAGE",
+          "links": [
+            508,
+            510
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "label": "遮罩",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage",
+        "ttNbgOverride": {
+          "color": "#332922",
+          "bgcolor": "#593930",
+          "groupcolor": "#b06634"
+        }
+      },
+      "widgets_values": [
+        "1440x1920@1x (4).png",
+        "image"
+      ],
+      "color": "#332922",
+      "bgcolor": "#593930"
+    },
+    {
+      "id": 381,
+      "type": "Note",
+      "pos": [
+        360.18231201171875,
+        6737.31201171875
+      ],
+      "size": [
+        249.58836364746094,
+        188.73973083496094
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "封面图输出尺寸:1440px 1920px\n向上保留1214px\n向下保留110px\n向左保留110px\n向右保留110px\n实际安全区域尺寸：1214px 596px"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 382,
+      "type": "PIP ArtisticWords Fusion",
+      "pos": [
+        1528.995361328125,
+        6854.50830078125
+      ],
+      "size": [
+        400,
+        748
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "label": "image",
+          "type": "IMAGE",
+          "link": 508
+        },
+        {
+          "name": "填充颜色",
+          "type": "STRING",
+          "shape": 7,
+          "pos": [
+            10,
+            302
+          ],
+          "widget": {
+            "name": "填充颜色"
+          },
+          "link": 511
+        },
+        {
+          "name": "描边颜色",
+          "type": "STRING",
+          "shape": 7,
+          "pos": [
+            10,
+            398
+          ],
+          "widget": {
+            "name": "描边颜色"
+          },
+          "link": 512
+        },
+        {
+          "name": "阴影颜色",
+          "type": "STRING",
+          "shape": 7,
+          "pos": [
+            10,
+            446
+          ],
+          "widget": {
+            "name": "阴影颜色"
+          },
+          "link": 513
+        }
+      ],
+      "outputs": [
+        {
+          "name": "融合图像",
+          "label": "融合图像",
+          "type": "IMAGE",
+          "links": [
+            506
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "信息",
+          "label": "信息",
+          "type": "STRING",
+          "links": [
+            509
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PIP ArtisticWords Fusion",
+        "ttNbgOverride": {
+          "color": "#332922",
+          "bgcolor": "#593930",
+          "groupcolor": "#b06634"
+        }
+      },
+      "widgets_values": [
+        "PIP ArtisticWords Fusion",
+        "Knewave-Regular",
+        0.63,
+        0.06,
+        0.08,
+        0.08,
+        true,
+        "#4096FF",
+        true,
+        7,
+        1,
+        "#000000",
+        true,
+        "#000000",
+        1,
+        15,
+        15,
+        5,
+        true,
+        "#FFFFFF",
+        1,
+        4,
+        4,
+        1,
+        1,
+        "none"
+      ],
+      "color": "#332922",
+      "bgcolor": "#593930"
+    },
+    {
+      "id": 383,
+      "type": "SaveImage",
+      "pos": [
+        1953.3035888671875,
+        6845.94384765625
+      ],
+      "size": [
+        416.5948486328125,
+        646.6614990234375
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "label": "图像",
+          "type": "IMAGE",
+          "link": 506
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage",
+        "ttNbgOverride": {
+          "color": "#332922",
+          "bgcolor": "#593930",
+          "groupcolor": "#b06634"
+        }
+      },
+      "widgets_values": [
+        "ComfyUI"
+      ],
+      "color": "#332922",
+      "bgcolor": "#593930"
+    },
+    {
+      "id": 385,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1170.163330078125,
+        7011.9716796875
+      ],
+      "size": [
+        314.3088684082031,
+        577.0326538085938
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "label": "文本",
+          "type": "STRING",
+          "pos": [
+            10,
+            36
+          ],
+          "widget": {
+            "name": "text"
+          },
+          "link": 509
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "label": "字符串",
+          "type": "STRING",
+          "shape": 6,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ShowText|pysssss",
+        "ttNbgOverride": {
+          "color": "#332922",
+          "bgcolor": "#593930",
+          "groupcolor": "#b06634"
+        }
+      },
+      "widgets_values": [
+        "",
+        "文本: PIP ArtisticWords Fusion\n字体: Knewave-Regular (大小: 126pt)\n\n【填充】\n颜色: #8aa4c6\n\n【描边】\n宽度: 7\n透明度: 1.0\n颜色: #55657a\n\n【阴影】\n颜色: #1f252d\n透明度: 1.0\n偏移: X=15, Y=15\n模糊: 5\n\n【内阴影】\n颜色: #FFFFFF\n透明度: 1.0\n偏移: X=4, Y=4\n模糊: 1\n"
+      ],
+      "color": "#332922",
+      "bgcolor": "#593930"
+    },
+    {
+      "id": 386,
+      "type": "PIP ColorPicker",
+      "pos": [
+        1175.566162109375,
+        6859.04736328125
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "label": "image",
+          "type": "IMAGE",
+          "link": 510
+        }
+      ],
+      "outputs": [
+        {
+          "name": "填充色",
+          "label": "填充色",
+          "type": "STRING",
+          "links": [
+            511
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "描边色",
+          "label": "描边色",
+          "type": "STRING",
+          "links": [
+            512
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "阴影色",
+          "label": "阴影色",
+          "type": "STRING",
+          "links": [
+            513
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PIP ColorPicker",
+        "ttNbgOverride": {
+          "color": "#332922",
+          "bgcolor": "#593930",
+          "groupcolor": "#b06634"
+        }
+      },
+      "widgets_values": [
+        60
+      ],
+      "color": "#332922",
+      "bgcolor": "#593930"
+    }
+  ],
+  "links": [
+    [
+      506,
+      382,
+      0,
+      383,
+      0,
+      "IMAGE"
+    ],
+    [
+      508,
+      377,
+      0,
+      382,
+      0,
+      "IMAGE"
+    ],
+    [
+      509,
+      382,
+      1,
+      385,
+      0,
+      "STRING"
+    ],
+    [
+      510,
+      377,
+      0,
+      386,
+      0,
+      "IMAGE"
+    ],
+    [
+      511,
+      386,
+      0,
+      382,
+      1,
+      "STRING"
+    ],
+    [
+      512,
+      386,
+      1,
+      382,
+      2,
+      "STRING"
+    ],
+    [
+      513,
+      386,
+      2,
+      382,
+      3,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.9646149645000037,
+      "offset": [
+        -647.2333375129263,
+        -6672.056220593504
+      ]
+    },
+    "node_versions": {
+      "comfy-core": "0.3.18",
+      "ComfyUI-Custom-Scripts": "d6657cc1f04539dbeea38d7bf6d73bc025004fa4",
+      "ComfyLiterals": "bdddb08ca82d90d75d97b1d437a652e0284a32ac"
+    },
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "ue_links": [],
+    "groupNodes": {}
+  },
+  "version": 0.4
+}
