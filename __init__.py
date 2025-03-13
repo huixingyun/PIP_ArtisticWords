@@ -10,17 +10,23 @@ if current_dir not in sys.path:
 from .nodes.artistic_text_node import ArtisticTextNode
 from .nodes.preview_node import TextPreviewNode
 from .nodes.svg_recorder_node import PIPSVGRecorder
+from .nodes.PIP_artistic_words_fusion import PIPArtisticWordsFusion
+from .nodes.PIP_ColorPicker import PIPColorPicker
 
 # Node mapping for ComfyUI
 NODE_CLASS_MAPPINGS = {
     "PIP Artistic Text Generator": ArtisticTextNode,
     "PIP Text Preview": TextPreviewNode,
-    "PIP SVG Recorder": PIPSVGRecorder
+    "PIP SVG Recorder": PIPSVGRecorder,
+    "PIP ArtisticWords Fusion": PIPArtisticWordsFusion,
+    "PIP ColorPicker": PIPColorPicker
 }
 
 # Display names for the UI
 NODE_DISPLAY_NAME_MAPPINGS = {
     "PIP Artistic Text Generator": "PIP Artistic Text Generator",
     "PIP Text Preview": "PIP Text Preview",
-    "PIP SVG Recorder": "PIP SVG Recorder"
+    "PIP SVG Recorder": "PIP SVG Recorder",
+    "PIP ArtisticWords Fusion": "PIP ArtisticWords Fusion",
+    "PIP ColorPicker": "🔴 PIP 颜色拾取"    
 }
