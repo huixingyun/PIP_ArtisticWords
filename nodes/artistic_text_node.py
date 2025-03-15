@@ -20,7 +20,7 @@ class ArtisticTextNode:
     def INPUT_TYPES(cls):
         # Get available styles
         from ..core.style_manager import StyleManager
-        style_manager = StyleManager()
+        style_manager = StyleManager(verbose=False)
         style_names = style_manager.get_style_names()
         
         return {
@@ -83,7 +83,7 @@ class ArtisticTextNode:
         
         # Create style manager and load styles/fonts
         from ..core.style_manager import StyleManager
-        style_manager = StyleManager()
+        style_manager = StyleManager(verbose=False)
         font_manager = FontManager()
         
         # Convert tensor to PIL image for processing (need it early for color analysis)
