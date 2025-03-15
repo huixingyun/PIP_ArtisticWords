@@ -11,7 +11,7 @@ from .svg_style_converter import SVGStyleConverter
 class StyleManager:
     """Manages text styles and fonts for artistic text generation."""
     
-    def __init__(self, styles_dir=None, fonts_dir=None, sketch_styles_dir=None):
+    def __init__(self, styles_dir=None, fonts_dir=None, sketch_styles_dir=None, verbose=False):
         """
         Initialize the style manager.
         
@@ -19,6 +19,7 @@ class StyleManager:
             styles_dir: Directory containing JSON style files
             fonts_dir: Directory containing font files
             sketch_styles_dir: Directory containing sketch-exported style files
+            verbose: Whether to print detailed loading information
         """
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.styles_dir = styles_dir or os.path.join(base_dir, 'styles')
@@ -27,6 +28,7 @@ class StyleManager:
         self.fonts_dir = fonts_dir or os.path.join(base_dir, 'fonts')
         self.styles = {}
         self.fonts = []
+        self.verbose = verbose
         self.load_styles()
         self.load_fonts()
     
@@ -38,19 +40,21 @@ class StyleManager:
         # 只加载SVG目录中的SVG文件
         svg_dir = os.path.join(script_dir, "SVG")
         if os.path.exists(svg_dir):
-            print(f"[StyleManager] 正在从 {svg_dir} 加载SVG样式文件")
+            if self.verbose:
+                print(f"[StyleManager] 正在从 {svg_dir} 加载SVG样式文件")
+            
             for filename in os.listdir(svg_dir):
                 if filename.endswith(".svg"):
                     filepath = os.path.join(svg_dir, filename)
                     try:
                         # 使用SVG解析器和转换器
-                        parser = SVGParser(filepath)
+                        parser = SVGParser(filepath, verbose=self.verbose)
                         svg_data = parser.parse()
                         
                         # 检查解析到的数据是否有效
                         if svg_data:
                             # 使用转换器转换为样式
-                            converter = SVGStyleConverter(svg_data)
+                            converter = SVGStyleConverter(svg_data, verbose=self.verbose)
                             style_name = os.path.splitext(filename)[0]
                             converter.style_name = style_name
                             style_data = converter.convert_to_json_style()
@@ -67,11 +71,14 @@ class StyleManager:
                             
                             # 添加到样式字典
                             self.styles[style_name] = style_data
-                            print(f"[StyleManager] 已加载SVG样式: {style_name}")
+                            if self.verbose:
+                                print(f"[StyleManager] 已加载SVG样式: {style_name}")
                         else:
-                            print(f"[StyleManager] SVG文件解析失败: {filepath}")
+                            if self.verbose:
+                                print(f"[StyleManager] SVG文件解析失败: {filepath}")
                     except Exception as e:
-                        print(f"加载SVG样式文件出错 {filepath}: {e}")
+                        if self.verbose:
+                            print(f"加载SVG样式文件出错 {filepath}: {e}")
         
         print(f"[StyleManager] 总共加载了 {len(self.styles)} 个样式")
     
@@ -81,11 +88,13 @@ class StyleManager:
             # 首先检查字体目录是否存在
             if not os.path.exists(self.fonts_dir):
                 os.makedirs(self.fonts_dir)
-                print(f"[StyleManager] 字体目录不存在，已创建: {self.fonts_dir}")
+                if self.verbose:
+                    print(f"[StyleManager] 字体目录不存在，已创建: {self.fonts_dir}")
             
             # 输出字体目录完整路径，方便调试
-            abs_fonts_dir = os.path.abspath(self.fonts_dir)
-            print(f"[StyleManager] 字体目录的绝对路径: {abs_fonts_dir}")
+            if self.verbose:
+                abs_fonts_dir = os.path.abspath(self.fonts_dir)
+                print(f"[StyleManager] 字体目录的绝对路径: {abs_fonts_dir}")
             
             # 获取所有.ttf和.otf文件 - 修复重复加载问题
             font_files = []
@@ -105,17 +114,21 @@ class StyleManager:
             
             # 输出找到的字体文件
             if self.fonts:
-                print(f"[StyleManager] 已加载 {len(self.fonts)} 个字体文件:")
-                for font in self.fonts:
-                    print(f"  - {font}")
+                print(f"[StyleManager] 已加载 {len(self.fonts)} 个字体文件")
+                if self.verbose:
+                    for font in self.fonts:
+                        print(f"  - {font}")
             else:
-                print(f"[StyleManager] 警告: 字体目录中没有找到字体文件")
+                if self.verbose:
+                    print(f"[StyleManager] 警告: 字体目录中没有找到字体文件")
                 # 如果没有找到字体，添加一个默认字体名称避免后续错误
                 self.fonts = ["default.ttf"]
-                print(f"[StyleManager] 已添加默认字体名称作为备选")
+                if self.verbose:
+                    print(f"[StyleManager] 已添加默认字体名称作为备选")
                 
         except Exception as e:
-            print(f"[StyleManager] 访问字体目录时出错: {e}")
+            if self.verbose:
+                print(f"[StyleManager] 访问字体目录时出错: {e}")
             # 出错时使用默认字体名称
             self.fonts = ["default.ttf"]
     
@@ -126,8 +139,9 @@ class StyleManager:
         Returns:
             List of style names
         """
-        # 打印所有已加载的样式名称
-        print(f"[StyleManager] 可用样式列表: {list(self.styles.keys())}")
+        # 只在verbose模式下打印样式列表
+        if self.verbose:
+            print(f"[StyleManager] 可用样式列表: {list(self.styles.keys())}")
         return list(self.styles.keys())
     
     def get_font_names(self):
@@ -146,7 +160,8 @@ class StyleManager:
             return style_data
         else:
             # 如果找不到指定样式，返回随机样式
-            print(f"[StyleManager] 样式 '{style_name}' 不存在，使用随机样式")
+            if self.verbose:
+                print(f"[StyleManager] 样式 '{style_name}' 不存在，使用随机样式")
             random_style = self.get_random_style()
             return random_style
     
@@ -168,7 +183,8 @@ class StyleManager:
         if font_name == "Random.ttf":
             # 随机选择一个可用字体而不是使用默认的
             font_name = random.choice(self.fonts) if self.fonts else "default.ttf"
-            print(f"[StyleManager] 检测到Random.ttf请求，随机选择字体: {font_name}")
+            if self.verbose:
+                print(f"[StyleManager] 检测到Random.ttf请求，随机选择字体: {font_name}")
         
         # 首先尝试直接查找字体
         font_path = os.path.join(self.fonts_dir, font_name)
@@ -193,22 +209,44 @@ class StyleManager:
         for variant in variants:
             font_path = os.path.join(self.fonts_dir, variant)
             if os.path.exists(font_path):
-                print(f"[StyleManager] 字体名称匹配: {font_name} → {variant}")
+                if self.verbose:
+                    print(f"[StyleManager] 字体名称匹配: {font_name} → {variant}")
                 return font_path
             
             # 尝试全小写
             font_path = os.path.join(self.fonts_dir, variant.lower())
             if os.path.exists(font_path):
-                print(f"[StyleManager] 字体名称匹配: {font_name} → {variant.lower()}")
+                if self.verbose:
+                    print(f"[StyleManager] 字体名称匹配 (小写): {font_name} → {variant.lower()}")
                 return font_path
         
-        # 如果所有尝试都失败，直接查找包含基本名称的任何字体
-        for font_file in os.listdir(self.fonts_dir):
-            if base_name.lower() in font_file.lower():
-                font_path = os.path.join(self.fonts_dir, font_file)
-                print(f"[StyleManager] 使用部分匹配字体: {font_name} → {font_file}")
-                return font_path
+        # 如果找不到，返回Random.ttf作为备用
+        if self.verbose:
+            print(f"[StyleManager] 警告: 未找到字体 '{font_name}'，已改用默认字体")
+        
+        # 如果有至少一个字体可用，返回第一个
+        if len(self.fonts) > 0:
+            default_font = self.fonts[0]
+            default_path = os.path.join(self.fonts_dir, default_font)
+            if os.path.exists(default_path):
+                return default_path
+        
+        # 实在找不到字体，返回None
+        return None
     
+    def generate_random_combination(self):
+        """生成一个随机的样式和字体组合，返回样式数据和字体名称。"""
+        style_data = self.get_random_style()
+        font_name = self.get_random_font()
+        
+        if self.verbose:
+            if style_data and 'name' in style_data:
+                print(f"[StyleManager] 随机样式: {style_data['name']}")
+            if font_name:
+                print(f"[StyleManager] 随机字体: {font_name}")
+        
+        return style_data, font_name
+
     def get_svg_style(self, svg_filename):
         """
         通过SVG文件名获取样式
@@ -222,13 +260,20 @@ class StyleManager:
         # 确保文件在SVG目录中存在
         svg_path = os.path.join(self.svg_dir, svg_filename)
         if not os.path.exists(svg_path):
-            print(f"[StyleManager] SVG文件不存在: {svg_path}")
+            if self.verbose:
+                print(f"[StyleManager] SVG文件不存在: {svg_path}")
             return None
         
         try:
             # 使用SVG解析器和转换器
-            from .svg_style_converter import SVGStyleConverter
-            style_data = SVGStyleConverter.convert_svg_file_to_style(svg_path)
+            parser = SVGParser(svg_path, verbose=self.verbose)
+            svg_data = parser.parse()
+            
+            # 使用转换器转换为样式
+            converter = SVGStyleConverter(svg_data, verbose=self.verbose)
+            style_name = os.path.splitext(svg_filename)[0]
+            converter.style_name = style_name
+            style_data = converter.convert_to_json_style()
             
             # 确保样式有名称
             if 'name' not in style_data:
@@ -238,19 +283,10 @@ class StyleManager:
             # 始终将字体设置为随机，忽略SVG中指定的字体
             style_data['font'] = "Random.ttf"
             
-            print(f"[StyleManager] 已加载SVG样式: {style_data['name']}")
+            if self.verbose:
+                print(f"[StyleManager] 已加载SVG样式: {style_data['name']}")
             return style_data
         except Exception as e:
-            print(f"[StyleManager] 加载SVG样式文件出错 {svg_path}: {e}")
+            if self.verbose:
+                print(f"[StyleManager] 加载SVG样式文件出错 {svg_path}: {e}")
             return None
-
-    def generate_random_combination(self):
-        """Generate a random style-font combination."""
-        style = self.get_random_style()
-        
-        # 即使样式中已定义字体，也强制使用随机字体
-        if 'font' in style:
-            style['font'] = "Random.ttf"
-            
-        font = self.get_random_font()
-        return style, font
