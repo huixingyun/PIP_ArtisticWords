@@ -14,22 +14,31 @@ import math
 ET.register_namespace("", "http://www.w3.org/2000/svg")
 ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Set up logging, but disable by default
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)  # Default to WARNING level to suppress INFO messages
 
 class SVGParser:
     """Parser for SVG files exported from Sketch with artistic text styles."""
     
-    def __init__(self, svg_path: str):
+    def __init__(self, svg_path: str, verbose: bool = False):
         """
         Initialize the SVG parser with the path to an SVG file.
         
         Args:
             svg_path: Path to the SVG file
+            verbose: Whether to print detailed information
         """
         self.svg_path = svg_path
         self.root = None
+        self.verbose = verbose
+        
+        # Set logger level based on verbose flag
+        if verbose:
+            logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.WARNING)
+            
         self.namespaces = {
             'svg': 'http://www.w3.org/2000/svg',
             'xlink': 'http://www.w3.org/1999/xlink'
@@ -49,7 +58,8 @@ class SVGParser:
         try:
             tree = ET.parse(self.svg_path)
             self.root = tree.getroot()
-            logger.info(f"Successfully parsed SVG file: {self.svg_path}")
+            if self.verbose:
+                logger.info(f"Successfully parsed SVG file: {self.svg_path}")
         except Exception as e:
             logger.error(f"Failed to parse SVG file: {e}")
             raise ValueError(f"Failed to parse SVG file: {e}")
@@ -81,14 +91,16 @@ class SVGParser:
         self._extract_text_elements()
         self._extract_uses()
         
-        logger.info(f"Extracted styles from SVG: {self.svg_path}")
+        if self.verbose:
+            logger.info(f"Extracted styles from SVG: {self.svg_path}")
         return self.parsed_data
     
     def _extract_defs(self) -> None:
         """Extract all definitions from the SVG file's defs section."""
         defs_elements = self.root.findall('.//svg:defs', self.namespaces)
         if not defs_elements:
-            logger.warning("No defs section found in SVG file")
+            if self.verbose:
+                logger.warning("No defs section found in SVG file")
             return
             
         # Process each defs section
@@ -121,7 +133,8 @@ class SVGParser:
                 # Store in the defs dictionary
                 self.parsed_data['defs'][child_id] = element_data
                 
-        logger.debug(f"Extracted {len(self.parsed_data['defs'])} definitions from defs")
+        if self.verbose:
+            logger.debug(f"Extracted {len(self.parsed_data['defs'])} definitions from defs")
     
     def _extract_gradients(self) -> None:
         """Extract gradient definitions from the SVG file."""
@@ -161,7 +174,8 @@ class SVGParser:
                 'angle': angle
             }
             
-            logger.debug(f"Extracted gradient: {gradient_id}")
+            if self.verbose:
+                logger.debug(f"Extracted gradient: {gradient_id}")
     
     def _extract_filters(self) -> None:
         """Extract filter definitions from the SVG file."""
@@ -194,7 +208,8 @@ class SVGParser:
                 filter_info['children'].append(effect_info)
             
             self.parsed_data['filters'][filter_id] = filter_info
-            logger.debug(f"Extracted filter: {filter_id}")
+            if self.verbose:
+                logger.debug(f"Extracted filter: {filter_id}")
     
     def _extract_text_elements(self) -> None:
         """Extract text elements and their properties from the SVG file."""
@@ -247,7 +262,8 @@ class SVGParser:
                 
             text_info['content'] = full_text
             self.parsed_data['text_elements'].append(text_info)
-            logger.debug(f"Extracted text element: {text_id}")
+            if self.verbose:
+                logger.debug(f"Extracted text element: {text_id}")
     
     def _extract_uses(self) -> None:
         """Extract 'use' elements which reference and style other elements."""
@@ -279,7 +295,8 @@ class SVGParser:
                     use_info['filter'] = match.group(1)
             
             self.parsed_data['uses'].append(use_info)
-            logger.debug(f"Extracted use element referencing: {href}")
+            if self.verbose:
+                logger.debug(f"Extracted use element referencing: {href}")
     
     @staticmethod
     def _parse_percentage(value: str) -> float:
