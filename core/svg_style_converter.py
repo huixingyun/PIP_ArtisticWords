@@ -22,22 +22,23 @@ class SVGStyleConverter:
     """Converts SVG style data into JSON style format for the text renderer."""
     
     @staticmethod
-    def convert_svg_file_to_style(svg_file_path: str) -> Dict[str, Any]:
+    def convert_svg_file_to_style(svg_file_path: str, verbose: bool = False) -> Dict[str, Any]:
         """
         静态方法，直接从SVG文件加载并转换为样式字典
         
         Args:
             svg_file_path: SVG文件路径
+            verbose: Whether to print detailed information
             
         Returns:
             样式字典，可直接用于文本渲染
         """
         # 解析SVG文件
-        parser = SVGParser(svg_file_path)
+        parser = SVGParser(svg_file_path, verbose=verbose)
         svg_data = parser.parse()
         
         # 使用SVG数据创建转换器并转换
-        converter = SVGStyleConverter(svg_data)
+        converter = SVGStyleConverter(svg_data, verbose=verbose)
         
         # 使用文件名作为样式名
         style_name = os.path.splitext(os.path.basename(svg_file_path))[0]
@@ -46,15 +47,17 @@ class SVGStyleConverter:
         # 转换为JSON样式
         return converter.convert_to_json_style()
     
-    def __init__(self, svg_data: Dict[str, Any]):
+    def __init__(self, svg_data: Dict[str, Any], verbose: bool = False):
         """
         Initialize the converter with parsed SVG data.
         
         Args:
             svg_data: Dictionary of parsed SVG data from SVGParser
+            verbose: Whether to print detailed information
         """
         self.svg_data = svg_data
         self.style_name = "svg_style"
+        self.verbose = verbose
     
     def convert_to_json_style(self) -> Dict[str, Any]:
         """
@@ -65,11 +68,13 @@ class SVGStyleConverter:
         """
         # 确保svg_data包含必要的键
         if not self.svg_data:
-            print("警告: SVG数据为空，返回默认样式")
+            if self.verbose:
+                print("警告: SVG数据为空，返回默认样式")
             return self._create_default_style()
             
         if 'text_elements' not in self.svg_data or not self.svg_data['text_elements']:
-            print("警告: SVG数据中没有文本元素，返回默认样式")
+            if self.verbose:
+                print("警告: SVG数据中没有文本元素，返回默认样式")
             return self._create_default_style()
         
         # 从SVG数据中提取样式
@@ -540,7 +545,8 @@ class SVGStyleConverter:
                         "opacity": opacity
                     }
         except Exception as e:
-            print(f"提取内阴影效果时出错: {e}")
+            if self.verbose:
+                print(f"提取内阴影效果时出错: {e}")
             
         return None
         
@@ -664,7 +670,8 @@ class SVGStyleConverter:
                             }
                         }
         except Exception as e:
-            print(f"提取阴影效果时出错: {e}")
+            if self.verbose:
+                print(f"提取阴影效果时出错: {e}")
             
         return None
     
@@ -786,7 +793,8 @@ class SVGStyleConverter:
                         "opacity": 0.8
                     }
         except Exception as e:
-            print(f"提取发光效果时出错: {e}")
+            if self.verbose:
+                print(f"提取发光效果时出错: {e}")
             
         return None
     
