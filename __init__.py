@@ -12,6 +12,7 @@ from .nodes.preview_node import TextPreviewNode
 from .nodes.svg_recorder_node import PIPSVGRecorder
 from .nodes.PIP_artistic_words_fusion import PIPArtisticWordsFusion
 from .nodes.PIP_ColorPicker import PIPColorPicker
+from .nodes.PIP_AdvancedColorAnalyzer import PIPAdvancedColorAnalyzer, PIPColorWheel
 
 # Node mapping for ComfyUI
 NODE_CLASS_MAPPINGS = {
@@ -19,7 +20,9 @@ NODE_CLASS_MAPPINGS = {
     "PIP Text Preview": TextPreviewNode,
     "PIP SVG Recorder": PIPSVGRecorder,
     "PIP ArtisticWords Fusion": PIPArtisticWordsFusion,
-    "PIP ColorPicker": PIPColorPicker
+    "PIP ColorPicker": PIPColorPicker,
+    "PIPAdvancedColorAnalyzer": PIPAdvancedColorAnalyzer,
+    "PIPColorWheel": PIPColorWheel
 }
 
 # Display names for the UI
@@ -28,5 +31,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "PIP Text Preview": "PIP Text Preview",
     "PIP SVG Recorder": "PIP SVG Recorder",
     "PIP ArtisticWords Fusion": "PIP ArtisticWords Fusion",
-    "PIP ColorPicker": "🔴 PIP 颜色拾取"    
+    "PIP ColorPicker": "🔴 PIP 颜色拾取",
+    "PIPAdvancedColorAnalyzer": "📊 PIP 高级颜色分析",
+    "PIPColorWheel": "🎨 PIP 色轮"
 }
