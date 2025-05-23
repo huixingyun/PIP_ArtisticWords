@@ -19,9 +19,10 @@ class ArtisticTextNode:
     @classmethod
     def INPUT_TYPES(cls):
         # Get available styles
-        from ..core.style_manager import StyleManager
-        style_manager = StyleManager(verbose=False)
-        style_names = style_manager.get_style_names()
+        # from ..core.style_manager import StyleManager
+        # style_manager = StyleManager(verbose=False)
+        # style_names = style_manager.get_style_names()
+        from .single_style_manager import style_names
         
         return {
             "required": {

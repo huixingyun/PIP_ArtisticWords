@@ -17,8 +17,9 @@ class TextPreviewNode:
     @classmethod
     def INPUT_TYPES(cls):
         # Get available styles
-        style_manager = StyleManager()
-        style_names = style_manager.get_style_names()
+        # style_manager = StyleManager()
+        # style_names = style_manager.get_style_names()
+        from .single_style_manager import style_names
         
         return {
             "required": {
